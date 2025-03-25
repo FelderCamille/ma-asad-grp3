@@ -3,6 +3,7 @@ import logging
 import sys
 
 from Subscriber import Subscriber
+from NewsType import NewsType
 
 def main():
     # Set the logging configuration
@@ -20,8 +21,8 @@ def main():
 
     # Subscribe to some news
     subscriber.connect()
-    subscriber.add_subscription("sports")
-    subscriber.add_subscription("politics")
+    subscriber.add_subscription(NewsType.SPORTS.value)
+    subscriber.add_subscription(NewsType.POLITICS.value)
     subscriber.wait_for_news()
 
 # Main program entry point

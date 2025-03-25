@@ -3,6 +3,7 @@ import logging
 import sys
 
 from Editor import Editor
+from NewsType import NewsType
 
 def main():
     # Set the logging configuration
@@ -20,9 +21,9 @@ def main():
 
     # Send some news
     publisher.connect()
-    publisher.send_news("sports", "Sport news 1")
-    publisher.send_news("politics", "Politics news 1")
-    publisher.send_news("sports", "Sport news 2")
+    publisher.send_news(NewsType.SPORTS.value, "Sport news 1")
+    publisher.send_news(NewsType.POLITICS.value, "Politics news 1")
+    publisher.send_news(NewsType.SPORTS.value, "Sport news 2")
     publisher.exit()
 
 # Main program entry point
