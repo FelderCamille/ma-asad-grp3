@@ -34,4 +34,3 @@ docker compose down -v
 - Handle exceptions:
   - When the subscriber tries to subscribe to an non existant queue, the program crashes
 - Add a queue (`fanout` exchange?) so that the editors indicate when are connected/disconnected
-- In the subscription callback, indicate the queue name

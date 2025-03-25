@@ -62,7 +62,8 @@ class Subscriber(threading.Thread):
         """
         Callback function that is called when a new message is received
         """
-        logging.info(f"Received: {body}")
+        type = method.exchange
+        logging.info(f"➡️ Received news type: {type}.\tContent: {body}")
 
     def exit(self):
         """

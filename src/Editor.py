@@ -41,7 +41,7 @@ class Editor(threading.Thread):
         logging.debug(f"Exchange {type} created if does not exist.")
         # Publish the news on the queue
         self.channel.basic_publish(exchange=type, routing_key='', body=news)
-        logging.info(f"{type} \t ➡️ Sent {news}")
+        logging.info(f"➡️ Sent type: {type}.\tContent: {news}")
 
     def exit(self):
         """
