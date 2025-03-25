@@ -37,15 +37,11 @@ class Editor(threading.Thread):
         Send the news to the subscribers
         """
         # Create the exchange if not exists
-        self.channel.exchange_declare(exchange=constants.EXCHANGE_NAME, exchange_type='direct')
-        # Create the queue if not exists
-        self.channel.queue_declare(queue=type, durable=True)
-        # Bind the queue to the exchange
-        self.channel.queue_bind(exchange=constants.EXCHANGE_NAME, queue=type)
-        logging.debug(f"Queue {type} created and binded if not exists")
+        self.channel.exchange_declare(exchange=type, exchange_type=constants.EXCHANGE_TYPE)
+        logging.debug(f"Exchange {type} created if does not exist.")
         # Publish the news on the queue
-        self.channel.basic_publish(exchange=constants.EXCHANGE_NAME, routing_key=type, body=news)
-        logging.info(f"{type}\tSent {news}")
+        self.channel.basic_publish(exchange=type, routing_key='', body=news)
+        logging.info(f"{type} \t ➡️ Sent {news}")
 
     def exit(self):
         """

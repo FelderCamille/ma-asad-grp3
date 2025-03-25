@@ -38,7 +38,18 @@ class Subscriber(threading.Thread):
 
         :param type: The news type to subscribe to
         """
-        self.channel.basic_consume(queue=type, on_message_callback=self.__callback, auto_ack=True)
+        # Create the exchange if not exists
+        self.channel.exchange_declare(exchange=type, exchange_type=constants.EXCHANGE_TYPE)
+        logging.debug(f"Exchange {type} created if does not exist.")
+        # Create the queue if not exists
+        result = self.channel.queue_declare(queue='', exclusive=True) # exclusive=True: delete the queue when the connection is closed
+        queue_name = result.method.queue
+        logging.debug(f"Queue {type} created if not exists")
+        # Bind the queue to the exchange
+        self.channel.queue_bind(exchange=type, queue=queue_name)
+        logging.debug(f"Queue {type} created and binded to exchange {type}")
+        # Subscribe to the queue
+        self.channel.basic_consume(queue=queue_name, on_message_callback=self.__callback, auto_ack=True)
 
     def wait_for_news(self):
         """

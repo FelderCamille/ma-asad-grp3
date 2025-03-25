@@ -35,4 +35,3 @@ docker compose down -v
   - When the subscriber tries to subscribe to an non existant queue, the program crashes
 - Add a queue (`fanout` exchange?) so that the editors indicate when are connected/disconnected
 - In the subscription callback, indicate the queue name
-- For now, only one client receives the news, even tho multiple clients are subscribed
