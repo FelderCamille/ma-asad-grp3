@@ -1,20 +1,52 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
+"""
+Manage the news subscriber
+"""
+
+import logging
+import threading
 import pika
 
 import constants
 
-# Establish a connection to the RabbitMQ server
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=constants.RABBITMQ_HOST))
-channel = connection.channel()
+class Subscriber(threading.Thread):
+    """
+    A subscriber can subscribe to news types and receive news
+    """
 
-print(' [*] Waiting for logs. To exit press CTRL+C')
+    def __init__(self, name: str):
+        """
+        Constructor
 
-# Prepare callback function
-def callback(ch, method, properties, body):
-    print(f" [x] {body}")
+        :param name: The name of the subscriber
+        """
+        super(Subscriber, self).__init__()  # execute super class constructor
+        self.name = name
 
-# Subscribe to the queue
-channel.basic_consume(queue='test', on_message_callback=callback, auto_ack=True)
+    def connect(self):
+        """
+        Connect to the broker
+        """
+        self.connection = pika.BlockingConnection(pika.ConnectionParameters(host=constants.RABBITMQ_HOST))
+        self.channel = self.connection.channel()
+        logging.info(f"Subscriber {self.name} connected.")
 
-# Start consuming messages
-channel.start_consuming()
+    def add_subscription(self, type: str):
+        """
+        Subscribe to a news type
+        """
+        self.channel.basic_consume(queue=type, on_message_callback=self.__callback, auto_ack=True)
+
+    def wait_for_news(self):
+        """
+        Wait for news
+        """
+        logging.info(f"Subscriber {self.name} is waiting for news.")
+        self.channel.start_consuming()
+
+    def __callback(self, ch, method, properties, body):
+        """
+        Callback function that is called when a new message is received
+        """
+        logging.info(f"Received: {body}")

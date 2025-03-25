@@ -13,13 +13,13 @@ Once the broker is started, you can access the management panel through: [http:/
 Run the subscriber:
 ```bash
 cd src
-python3 subscriber.py
+python3 subscriber_main.py
 ```
 
 Run the publisher:
 ```bash
 cd src
-python3 publisher.py
+python3 publisher_main.py
 ```
 
 ## 🛑 Stop the SI
