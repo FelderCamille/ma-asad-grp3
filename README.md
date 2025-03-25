@@ -27,3 +27,12 @@ python3 publisher_main.py
 ```sh
 docker compose down -v
 ```
+
+## Next
+
+- The subscribers cannot subscribe/unsubscribe to a certain news type for now.
+- Handle exceptions:
+  - When the subscriber tries to subscribe to an non existant queue, the program crashes
+- Add a queue (`fanout` exchange?) so that the editors indicate when are connected/disconnected
+- In the subscription callback, indicate the queue name
+- For now, only one client receives the news, even tho multiple clients are subscribed

@@ -36,6 +36,8 @@ class Editor(threading.Thread):
         """
         Send the news to the subscribers
         """
+        # Create the exchange if not exists
+        self.channel.exchange_declare(exchange=constants.EXCHANGE_NAME, exchange_type='direct')
         # Create the queue if not exists
         self.channel.queue_declare(queue=type, durable=True)
         # Bind the queue to the exchange

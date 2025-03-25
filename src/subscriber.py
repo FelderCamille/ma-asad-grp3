@@ -35,6 +35,8 @@ class Subscriber(threading.Thread):
     def add_subscription(self, type: str):
         """
         Subscribe to a news type
+
+        :param type: The news type to subscribe to
         """
         self.channel.basic_consume(queue=type, on_message_callback=self.__callback, auto_ack=True)
 
@@ -50,3 +52,10 @@ class Subscriber(threading.Thread):
         Callback function that is called when a new message is received
         """
         logging.info(f"Received: {body}")
+
+    def exit(self):
+        """
+        Close the connection
+        """
+        self.connection.close()
+        logging.info(f"Subscriber {self.name} disconnected.")
