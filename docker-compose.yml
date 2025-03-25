@@ -1,0 +1,12 @@
+name: MA_ASAD-Grp3-Project
+
+services:
+
+  # RabbitMQ broker
+  broker:
+    container_name: broker
+    image: rabbitmq:4.0-management
+    ports:
+      - "5672:5672"   # AMQP
+      - "15672:15672" # Web UI
+    restart: always
