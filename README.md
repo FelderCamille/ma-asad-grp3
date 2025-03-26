@@ -31,6 +31,4 @@ docker compose down -v
 ## Next
 
 - The subscribers cannot subscribe/unsubscribe to a certain news type for now.
-- Handle exceptions:
-  - When the subscriber tries to subscribe to an non existant queue, the program crashes
 - Add a queue (`fanout` exchange?) so that the editors indicate when are connected/disconnected
