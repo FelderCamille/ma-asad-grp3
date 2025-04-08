@@ -22,13 +22,16 @@ def main():
     for type in constants.NEWS_TYPES:
         logging.info(f" - {type}")
 
-    # Create the subscriber
-    subscriber = Subscriber()
-    subscriber.name = f"Subscriber \"{name}\""
-    subscriber.start()
-
-    # Wait for the subscriber to be finished
-    subscriber.join()
+    try:
+        # Create the subscriber
+        subscriber = Subscriber()
+        subscriber.name = f"Subscriber \"{name}\""
+        subscriber.start()
+        # Wait for the subscriber to be finished
+        subscriber.join()
+    except KeyboardInterrupt:
+        # Close the connection
+        subscriber.exit()
 
 # Main program entry point
 if __name__ == "__main__":

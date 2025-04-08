@@ -28,6 +28,9 @@ class Subscriber(threading.Thread):
         # Connect to the broker
         self.__connect()
 
+        # Subscribe to the editors exchange so the subscriber knows which editors is available
+        self.__add_subscription(constants.EDITORS_EXCHANGE_NAME)
+
         # Get the news types to subscribe to
         types = input("Enter the news types you want to subscribe to (separated by a space): ")
         types = types.split()
@@ -40,8 +43,8 @@ class Subscriber(threading.Thread):
         # Subscribe to the news types
         for type in types:
             self.__add_subscription(type)
-        
-        # Wait for the consumer thread to finish
+
+        # Consume messages
         self.__wait_for_news()
 
     def __connect(self):
@@ -52,49 +55,45 @@ class Subscriber(threading.Thread):
         self.channel = self.connection.channel()
         logging.info("Subscriber connected.")
 
-    def __add_subscription(self, type: str):
+    def __add_subscription(self, name: str):
         """
-        Subscribe to a news type
+        Subscribe to a queue
 
-        :param type: The news type to subscribe to
+        :param name: The exchange name to subscribe to
         """
         # Create the exchange if not exists
-        self.channel.exchange_declare(exchange=type, exchange_type=constants.EXCHANGE_TYPE)
-        logging.debug(f"Exchange {type} created if does not exist.")
+        self.channel.exchange_declare(exchange=name, exchange_type=constants.EXCHANGE_TYPE)
+        logging.debug(f"Exchange {name} created if does not exist.")
         # Create the queue if not exists
         result = self.channel.queue_declare(queue='', exclusive=True) # exclusive=True: delete the queue when the connection is closed
         queue_name = result.method.queue
-        logging.debug(f"Queue {type} created if not exists")
+        logging.debug(f"Queue {queue_name} created if not exists")
         # Bind the queue to the exchange
-        self.channel.queue_bind(exchange=type, queue=queue_name)
-        logging.debug(f"Queue {type} created and binded to exchange {type}")
+        self.channel.queue_bind(exchange=name, queue=queue_name)
+        logging.debug(f"Queue {queue_name} created and binded to exchange {name}.")
         # Subscribe to the queue
         self.channel.basic_consume(queue=queue_name, on_message_callback=self.__callback, auto_ack=True)
-        logging.info(f"✅ Subscribed to news type: {type}.")
+        logging.info(f"✅ Subscribed to {name}.")
 
     def __wait_for_news(self):
         """
         Wait for news
         """
-        try:
-            logging.info("🚀 Subscriber is waiting for news.")
-            self.channel.start_consuming()
-        except KeyboardInterrupt:
-            logging.info("🔥 Subscriber interrupted.")
-            self.channel.stop_consuming()
-        finally:
-            self.__exit()
+        logging.info("🚀 Subscriber is waiting for news.")
+        self.channel.start_consuming()
 
     def __callback(self, ch, method, properties, body):
         """
         Callback function that is called when a new message is received
         """
-        type = method.exchange
-        logging.info(f"➡️ Received news type: {type}.\tContent: {body}")
+        exchange_name = method.exchange
+        logging.info(f"➡️ Received on \"{exchange_name}\": {body}")
 
-    def __exit(self):
+    def exit(self):
         """
         Close the connection
         """
+        # Stop consuming messages
+        self.channel.stop_consuming()
+        # Close the connection
         self.connection.close()
-        logging.info("Subscriber disconnected.")

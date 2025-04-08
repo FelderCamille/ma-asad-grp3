@@ -31,4 +31,3 @@ docker compose down -v
 ## Next
 
 - The subscribers cannot subscribe/unsubscribe to a certain news type for now.
-- Add a queue (`fanout` exchange?) so that the editors indicate when are connected/disconnected
