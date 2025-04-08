@@ -20,6 +20,7 @@ class Editor(threading.Thread):
         Constructor
         """
         super(Editor, self).__init__()  # execute super class constructor
+        self.running = True  # flag to indicate if the editor is running
 
     def run(self):
         """
@@ -28,10 +29,13 @@ class Editor(threading.Thread):
         # Connect to the broker
         self.__connect()
         # Send news
-        while True:
+        while self.running:
             # Get the news type
             types = input("Enter the news type(s) (multiple types must be separated by a space): ")
             types = types.split()
+            # Check if the user wants to exit (exit request could have been made during the input)
+            if not self.running:
+                break
             # Check if the types are valid, if not ask again
             invalid_type = False
             for type in types:
@@ -76,6 +80,8 @@ class Editor(threading.Thread):
         """
         Close the connection
         """
+        # Set the flag to false to stop the thread
+        self.running = False
         # Indicate that the editor is offline
         self.__send_to_subscribers(constants.EDITORS_EXCHANGE_NAME, f"{self.name} is offline.")
         # Close the connection

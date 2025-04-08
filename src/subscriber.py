@@ -7,6 +7,7 @@ Manage the news subscriber
 import logging
 import threading
 import pika
+import time
 
 import constants
 
@@ -20,6 +21,7 @@ class Subscriber(threading.Thread):
         Constructor
         """
         super(Subscriber, self).__init__()  # execute super class constructor
+        self.running = True  # flag to indicate if the subscriber is running
 
     def run(self):
         """
@@ -80,7 +82,12 @@ class Subscriber(threading.Thread):
         Wait for news
         """
         logging.info("🚀 Subscriber is waiting for news.")
-        self.channel.start_consuming()
+        # Start consuming messages
+        while self.running:
+            self.connection.process_data_events()
+            time.sleep(0.1)
+        # Safely close the connection if the subscriber is stopped
+        self.connection.close()
 
     def __callback(self, ch, method, properties, body):
         """
@@ -91,9 +98,7 @@ class Subscriber(threading.Thread):
 
     def exit(self):
         """
-        Close the connection
+        Stop the subscriber
         """
-        # Stop consuming messages
-        self.channel.stop_consuming()
-        # Close the connection
-        self.connection.close()
+        self.running = False
+        logging.info("Subscriber stopped.")
