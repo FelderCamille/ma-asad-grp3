@@ -9,4 +9,11 @@ services:
     ports:
       - "5672:5672"   # AMQP
       - "15672:15672" # Web UI
+    hostname: "rabbit"
     restart: always
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq/
+
+volumes:
+  rabbitmq-data:
+    driver: local
