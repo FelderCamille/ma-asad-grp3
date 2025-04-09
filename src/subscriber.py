@@ -46,9 +46,15 @@ class Subscriber(threading.Thread):
         for type in types:
             self.__add_subscription(type)
 
+        # start thread to listen ti unsubscribe commands
+        command_thread = threading.Thread(target=self.listen_for_commands)
+        command_thread.daemon = True  # Daemonize thread
+        command_thread.start()  # Start the execution
+        
         # Consume messages
         self.__wait_for_news()
 
+        
     def __connect(self):
         """
         Connect to the broker
@@ -69,6 +75,12 @@ class Subscriber(threading.Thread):
         # Create the queue if not exists
         result = self.channel.queue_declare(queue='', exclusive=True) # exclusive=True: delete the queue when the connection is closed
         queue_name = result.method.queue
+        
+        # keep track of queue names per exchange
+        if not hasattr(self, 'exchange_queue_map'):
+            self.exchange_queue_map = {}
+        self.exchange_queue_map[name] = queue_name
+        
         logging.debug(f"Queue {queue_name} created if not exists")
         # Bind the queue to the exchange
         self.channel.queue_bind(exchange=name, queue=queue_name)
@@ -76,6 +88,16 @@ class Subscriber(threading.Thread):
         # Subscribe to the queue
         self.channel.basic_consume(queue=queue_name, on_message_callback=self.__callback, auto_ack=True)
         logging.info(f"✅ Subscribed to {name}.")
+    
+    def __remove_subscription(self, name: str):
+        """
+        Unsubscribe from a queue (unbind from exchange)
+        """
+        # keep track of queue names per exchange
+        if hasattr(self, 'exchange_queue_map') and name in self.exchange_queue_map:
+            queue_name = self.exchange_queue_map[name]
+            self.channel.queue_unbind(exchange=name, queue=queue_name)
+            logging.info(f"💢 Unsubscribed from {name}.")
 
     def __wait_for_news(self):
         """
@@ -88,6 +110,26 @@ class Subscriber(threading.Thread):
             time.sleep(0.1)
         # Safely close the connection if the subscriber is stopped
         self.connection.close()
+        
+    def listen_for_commands(self):
+        """
+        A thread that listens for user commands to unsubscribe from topics
+        
+        """
+        while self.running:
+            try:
+                cmd = input(">>").strip()
+                if cmd.startswith("unsubscribe"):
+                    topic = cmd.split(" ",1)[1]
+                    if topic in self.exchange_queue_map:
+                        self.__remove_subscription(topic)
+                    else:
+                        print(f"⚠️ Not subscribed to '{topic}'")
+                elif cmd == "exit":
+                    self.exit()
+                    break
+            except EOFError:
+                break
 
     def __callback(self, ch, method, properties, body):
         """
