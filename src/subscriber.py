@@ -121,6 +121,7 @@ class Subscriber(threading.Thread):
     def listen_for_commands(self):
         """
         A thread that listens for user commands:
+          - subscribe <topic>
           - unsubscribe <topic>
           - subscribeeditor <editorName>
           - unsubscribeeditor <editorName>
@@ -143,7 +144,13 @@ class Subscriber(threading.Thread):
                     break
                 elif len(args) > 1:
                     parameter = args[1]
-                    if cmd.startswith("unsubscribe "):
+                    if cmd.startswith("subscribe "):
+                        # ex: subscribe weather
+                        if parameter not in constants.NEWS_TYPES:
+                            logging.error(f"⚡️ Invalid news type: {parameter}")
+                            continue
+                        self.__add_subscription(parameter)
+                    elif cmd.startswith("unsubscribe "):
                         # ex: unsubscribe weather
                         self.__remove_subscription(parameter)
 
