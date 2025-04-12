@@ -2,7 +2,7 @@
 import logging
 import sys
 
-from Subscriber import Subscriber
+from subscriber import Subscriber
 import constants
 
 def main():
