@@ -17,7 +17,7 @@ Subscribers can subscribe or unsubscribe both by **news categories** or **publis
   - Management console on port `15672`.
 
 - **Publisher (Editor)**
-  - Code in `publisher_main.py` and `Editor.py`.
+  - Code in `publisher_main.py` and `publisher.py`.
   - Publishes to:
     - Category-specific exchanges (e.g., `sports`, `politics`).
     - A dedicated exchange named `editor_<publisherName>` (e.g., `editor_Alice`).
@@ -61,6 +61,7 @@ Open a terminal and execute:
 
 ```bash
 cd src
+pip install -r requirements.txt
 python3 publisher_main.py
 ```
 
@@ -87,6 +88,7 @@ Open another terminal and execute:
 
 ```bash
 cd src
+pip install -r requirements.txt
 python3 subscriber_main.py
 ```
 
@@ -110,6 +112,7 @@ You will now see an interactive prompt (`>>`).
 
 From the subscriber prompt (`>>`), use:
 
+- `subscribe <news_type>` (e.g., `unsubscribe sports`)
 - `unsubscribe <news_type>` (e.g., `unsubscribe sports`)
 - `subscribeeditor <publisher_name>` (e.g., `subscribeeditor Alice`)
 - `unsubscribeeditor <publisher_name>` (e.g., `unsubscribeeditor Alice`)

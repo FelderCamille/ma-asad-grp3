@@ -50,6 +50,7 @@ class Subscriber(threading.Thread):
         # Start thread to listen to subscribe/unsubscribe commands
         command_thread = threading.Thread(target=self.listen_for_commands)
         command_thread.daemon = True  # Daemonize thread
+        command_thread.name = "CommandListener"
         command_thread.start()
         
         # Loop to receive messages
@@ -126,6 +127,7 @@ class Subscriber(threading.Thread):
           - exit
         """
         print("Commands available:")
+        print("- subscribe <topic>")
         print("- unsubscribe <topic>")
         print("- subscribeeditor <editorName>")
         print("- unsubscribeeditor <editorName>")
