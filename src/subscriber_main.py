@@ -19,20 +19,16 @@ def main():
 
     # Inform on available news types
     logging.info("You can subscribe to the following news types:")
-    for type in constants.NEWS_TYPES:
-        logging.info(f" - {type}")
+    for type_ in constants.NEWS_TYPES:
+        logging.info(f" - {type_}")
 
     try:
-        # Create the subscriber
         subscriber = Subscriber()
         subscriber.name = f"Subscriber \"{name}\""
         subscriber.start()
-        # Wait for the subscriber to be finished
         subscriber.join()
     except KeyboardInterrupt:
-        # Close the connection
         subscriber.exit()
 
-# Main program entry point
 if __name__ == "__main__":
     main()

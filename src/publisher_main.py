@@ -19,21 +19,19 @@ def main():
 
     # Inform on available news types
     logging.info("You can create a news of the following types:")
-    for type in constants.NEWS_TYPES:
-        logging.info(f" - {type}")
+    for type_ in constants.NEWS_TYPES:
+        logging.info(f" - {type_}")
 
     try:
         # Create the publisher
-        publisher = Editor()
-        publisher.name = f"Editor \"{publisher_name}\"" # Name the thread
+        publisher = Editor(editor_name=publisher_name)
+        publisher.name = f"Editor \"{publisher_name}\""
         publisher.start()
         # Wait for the publisher to be finished
         publisher.join()
     except KeyboardInterrupt:
-        # Close the connection
         publisher.exit()
         
 
-# Main program entry point
 if __name__ == "__main__":
     main()
