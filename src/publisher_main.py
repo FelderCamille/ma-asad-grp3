@@ -2,7 +2,7 @@
 import logging
 import sys
 
-from Editor import Editor
+from publisher import Editor
 import constants
 
 def main():

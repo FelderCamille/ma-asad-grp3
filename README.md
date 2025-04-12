@@ -79,7 +79,7 @@ You can publish news periodically by following prompts:
 
 To exit the publisher:
 
-- Press `Ctrl + C` or type `exit` when prompted.
+- Press `Ctrl + C`.
 
 ### 🔵 Terminal 2: Subscriber Setup
 
@@ -164,9 +164,5 @@ docker compose down -v
 This stops RabbitMQ and removes all containers, networks, and volumes.
 
 ---
-
-## 🚧 Next Steps
-
-- Allow dynamic subscription/unsubscription to news categories without restarting.
 
 Enjoy! For questions or issues, contact the **MA_ASAD - Grp3** team.

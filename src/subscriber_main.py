@@ -23,9 +23,11 @@ def main():
         logging.info(f" - {type_}")
 
     try:
+        # Create the subscriber
         subscriber = Subscriber()
         subscriber.name = f"Subscriber \"{name}\""
         subscriber.start()
+        # Wait for the subscriber to be finished
         subscriber.join()
     except KeyboardInterrupt:
         subscriber.exit()

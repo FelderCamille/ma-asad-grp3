@@ -21,7 +21,7 @@ class Editor(threading.Thread):
         """
         super(Editor, self).__init__()  # execute super class constructor
         self.running = True  # flag to indicate if the editor is running
-        self.editor_name_str = editor_name  # Retain the raw name for creating the editor-specific exchange
+        self.editor_exchange = f"editor_{editor_name.replace(' ', '_')}" # retain the name for creating the editor-specific exchange
 
     def run(self):
         """
@@ -50,11 +50,10 @@ class Editor(threading.Thread):
             news = input("Enter the news: ")
             # Send the news
             for type_ in types:
-                # 1) Envoi via l’exchange du type (COMPORTEMENT EXISTANT)
+                # 1) Send the news to the subscribers of the type of news
                 self.__send_to_subscribers(name=type_, content=news)
 
-                # 2) Envoi via l’exchange dédié à l’ÉDITEUR (NOUVEAU)
-                # On préfixe éventuellement le type dans le message pour l’info.
+                # 2) Send the news to the subscribers of the editor
                 self.__send_to_subscribers(
                     name=self.editor_exchange,
                     content=f"[{type_}] {news}"
@@ -69,17 +68,6 @@ class Editor(threading.Thread):
         )
         self.channel = self.connection.channel()
         logging.info("Editor connected.")
-
-        # Crée un exchange unique pour CET éditeur
-        # On pourrait assainir le nom, mais ici on le construit simple.
-        self.editor_exchange = f"editor_{self.editor_name_str.replace(' ', '_')}"
-
-        # Déclare l’exchange de l’éditeur (fanout).
-        self.channel.exchange_declare(
-            exchange=self.editor_exchange,
-            exchange_type=constants.EXCHANGE_TYPE
-        )
-        logging.debug(f"Editor-specific exchange {self.editor_exchange} declared.")
 
         # Indique que l'éditeur est en ligne sur l’exchange général "editors"
         self.__send_to_subscribers(
