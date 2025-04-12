@@ -13,6 +13,7 @@ def main():
     logging.basicConfig(stream=sys.stderr, 
                     level=logging.INFO, 
                     format="[%(levelname)s] %(threadName)s \t\t %(message)s")
+    logging.getLogger("pika").setLevel(logging.WARNING)
 
     # Get parameters from the console
     publisher_name = input("Enter your publisher name: ")

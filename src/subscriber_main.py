@@ -13,6 +13,7 @@ def main():
     logging.basicConfig(stream=sys.stderr, 
                     level=logging.INFO, 
                     format="[%(levelname)s] %(threadName)s \t\t %(message)s")
+    logging.getLogger("pika").setLevel(logging.WARNING)
 
     # Get the subscriber name from the console
     name = input("Enter your name: ")
