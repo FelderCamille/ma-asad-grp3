@@ -98,15 +98,16 @@ When prompted, enter subscriber name:
 Enter your name: Bob
 ```
 
-Then enter news types to subscribe initially:
+You will now see an interactive prompt (`>>`).
+
+Then enter `subscribe` followed by the news type to subscribe to:
 
 ```bash
-sports politics
+subscribe sports
 ```
 
-Bob subscribes immediately to these news types.
+Bob subscribes immediately to these news type.
 
-You will now see an interactive prompt (`>>`).
 
 ### ⚡ Interactive Subscriber Commands
 

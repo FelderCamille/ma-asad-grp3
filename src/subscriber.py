@@ -36,19 +36,8 @@ class Subscriber(threading.Thread):
         # Subscribe to "editors" exchange to receive announcements of who is online or offline
         self.__add_subscription(constants.EDITORS_EXCHANGE_NAME)
 
-        # Get the news types to subscribe to
-        types = input("Enter the news types you want to subscribe to (separated by a space): ")
-        types = types.split()
-
-        # Check if the types are valid (in the enum values)
-        for type_ in types:
-            if type_ not in constants.NEWS_TYPES:
-                logging.error(f"⚡️ Invalid news type: {type_}")
-            else:
-                self.__add_subscription(type_)
-
         # Start thread to listen to subscribe/unsubscribe commands
-        command_thread = threading.Thread(target=self.listen_for_commands)
+        command_thread = threading.Thread(target=self.__listen_for_commands)
         command_thread.daemon = True  # Daemonize thread
         command_thread.name = "CommandListener"
         command_thread.start()
@@ -118,7 +107,7 @@ class Subscriber(threading.Thread):
         # Safely close the connection
         self.connection.close()
 
-    def listen_for_commands(self):
+    def __listen_for_commands(self):
         """
         A thread that listens for user commands:
           - subscribe <topic>
