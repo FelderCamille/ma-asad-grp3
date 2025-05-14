@@ -17,11 +17,14 @@ class Subscriber(threading.Thread):
     A subscriber can subscribe to editors, news types, and receive news
     """
 
-    def __init__(self):
+    def __init__(self, username, password, vhost = "subscriber_vhost"):
         """
         Constructor
         """
         super(Subscriber, self).__init__()  # execute super class constructor
+        self.username = username
+        self.password = password
+        self.vhost = vhost
         self.running = True  # flag to indicate if the subscriber is running
         self.exchange_queue_map = {} # dictionary to store the mapping of exchanges to queues
         self.online_editors = set() # set to store online editors
@@ -49,8 +52,14 @@ class Subscriber(threading.Thread):
         """
         Connect to the broker
         """
+        crendentials = pika.PlainCredentials(self.username, self.password)
+        parameters = pika.ConnectionParameters(
+            host=constants.RABBITMQ_HOST,
+            virtual_host=self.vhost,
+            credentials=crendentials
+        )
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=constants.RABBITMQ_HOST)
+            parameters
         )
         self.channel = self.connection.channel()
         logging.info("Subscriber connected.")

@@ -15,13 +15,18 @@ class Editor(threading.Thread):
     An editor can send news to the broker
     """
 
-    def __init__(self, editor_name):
+    def __init__(self, editor_name, username, password, vhost = "publisher_vhost"):
         """
         Constructor
         """
         super(Editor, self).__init__()  # execute super class constructor
         self.running = True  # flag to indicate if the editor is running
         self.editor_exchange = f"editor_{editor_name.replace(' ', '_')}" # retain the name for creating the editor-specific exchange
+        
+        self.username = username
+        self.password = password
+        self.vhost = vhost
+        
 
     def run(self):
         """
@@ -63,8 +68,14 @@ class Editor(threading.Thread):
         """
         Connect to the broker
         """
+        credentials = pika.PlainCredentials(self.username, self.password)
+        parameters = pika.ConnectionParameters(
+            host=constants.RABBITMQ_HOST,
+            virtual_host=self.vhost,
+            credentials=credentials
+        )   
         self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(host=constants.RABBITMQ_HOST)
+            parameters
         )
         self.channel = self.connection.channel()
         logging.info("Editor connected.")

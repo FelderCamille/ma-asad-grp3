@@ -1,0 +1,49 @@
+{
+  "users": [
+    {"name": "admin", "password": "supersecureadmin", "tags": "administrator"},
+    {"name": "editor1", "password": "editorpass", "tags": "publisher"},
+    {"name": "subscriber1", "password": "subpass", "tags": "subscriber"}
+  ],
+  "vhosts": [
+    {"name": "publisher_vhost"},
+    {"name": "subscriber_vhost"},
+    {"name": "admin"}
+  ],
+  "permissions": [
+    {
+      "user": "editor1",
+      "vhost": "publisher_vhost",
+      "configure": "^editors$",
+      "write": ".*",
+      "read": ""
+    },
+    {
+      "user": "subscriber1",
+      "vhost": "subscriber_vhost",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "admin",
+      "vhost": "/admin",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "admin",
+      "vhost": "/publisher",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    },
+    {
+      "user": "admin",
+      "vhost": "/subscriber",
+      "configure": ".*",
+      "write": ".*",
+      "read": ".*"
+    }
+  ]
+}

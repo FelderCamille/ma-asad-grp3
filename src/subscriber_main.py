@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import logging
 import sys
+import getpass
 
 from subscriber import Subscriber
 import constants
@@ -17,7 +18,8 @@ def main():
 
     # Get the subscriber name from the console
     name = input("Enter your name: ")
-
+    username = input("Enter your RabbitMQ username: ")
+    password = getpass.getpass("Enter your RabbitMQ password: ")
     # Inform on available news types
     logging.info("You can subscribe to the following news types:")
     for type_ in constants.NEWS_TYPES:
@@ -25,7 +27,10 @@ def main():
 
     try:
         # Create the subscriber
-        subscriber = Subscriber()
+        subscriber = Subscriber(
+            username=username,
+            password=password,
+        )
         subscriber.name = f"Subscriber \"{name}\""
         subscriber.start()
         # Wait for the subscriber to be finished
