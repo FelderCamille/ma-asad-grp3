@@ -26,21 +26,21 @@
     },
     {
       "user": "admin",
-      "vhost": "/admin",
+      "vhost": "admin",
       "configure": ".*",
       "write": ".*",
       "read": ".*"
     },
     {
       "user": "admin",
-      "vhost": "/publisher",
+      "vhost": "publisher_vhost",
       "configure": ".*",
       "write": ".*",
       "read": ".*"
     },
     {
       "user": "admin",
-      "vhost": "/subscriber",
+      "vhost": "subscriber_vhost",
       "configure": ".*",
       "write": ".*",
       "read": ".*"
