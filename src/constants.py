@@ -7,6 +7,13 @@ RABBITMQ_PORT = 5671
 # Broker virtual host
 RABBITMQ_VHOST = 'news'
 
+# CA certificate path
+CA_CERT_FILE = "./certs/ca_certificate.pem"
+# Client certificate path
+CLIENT_CERT_FILE = "./certs/client_certificate.pem"
+# Client certificate path
+CLIENT_KEY_FILE = "./certs/client_key.pem"
+
 # News exchange name
 NEWS_EXCHANGE_NAME = 'news'
 # Editors announcement exchange name
@@ -25,3 +32,10 @@ NEWS_TYPES = [
     'science',
     'education',
 ]
+
+# Utils
+def format_routing_key(routing_key: str) -> str:
+    """
+    Format the routing key to better readability in the logs
+    """
+    return routing_key.replace('.#', '').replace('*.', '')

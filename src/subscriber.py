@@ -54,8 +54,8 @@ class Subscriber(threading.Thread):
         Connect to the broker using TLS and authentication
         """
         # Create SSL context with CA and client certificates
-        context = ssl.create_default_context(cafile="certs/ca_certificate.pem")
-        context.load_cert_chain("certs/client_certificate.pem", "certs/client_key.pem")
+        context = ssl.create_default_context(cafile=constants.CA_CERT_FILE)
+        context.load_cert_chain(constants.CLIENT_CERT_FILE, constants.CLIENT_KEY_FILE)
 
         # Provide RabbitMQ credentials
         credentials = pika.PlainCredentials(self.username, self.password)
@@ -96,9 +96,12 @@ class Subscriber(threading.Thread):
         self.channel.queue_bind(exchange=exchange, queue=self.queue_name, routing_key=routing)
         logging.debug(f"Queue {self.queue_name} bound to exchange {exchange} with routing key {routing}.")
         
+        # Format routing key for better readability
+        routingKeyFormatted = constants.format_routing_key(routing)
+
         # Store the mapping of exchange to queue
         self.news_routing.add(routing)
-        logging.info(f"✅ Subscribed to {exchange} with routing key {routing}.")
+        logging.info(f"✅ Subscribed to {exchange} with routing key {routingKeyFormatted}.")
 
     def __remove_subscription(self, exchange: str, routing: str):
         """
@@ -107,12 +110,13 @@ class Subscriber(threading.Thread):
         :param exchange: The exchange name which the queue is bound to
         :param routing: The routing key to unbind from the queue
         """
+        routingKeyFormatted = constants.format_routing_key(routing)
         if routing in self.news_routing:
             self.channel.queue_unbind(exchange=exchange, queue=self.queue_name, routing_key=routing)
             self.news_routing.remove(routing)
-            logging.info(f"💢 Unsubscribed from {exchange} on {routing}.")
+            logging.info(f"💢 Unsubscribed from {exchange} on {routingKeyFormatted}.")
         else:
-            logging.warning(f"⚡️ Not subscribed to {exchange} on {routing}.")
+            logging.warning(f"⚡️ Not subscribed to {exchange} on {routingKeyFormatted}.")
 
     def __wait_for_news(self):
         """
@@ -188,9 +192,13 @@ class Subscriber(threading.Thread):
         exchange_name = method.exchange
         routing_key = method.routing_key
         message = body.decode('utf-8')
+        logging.debug(f"Received on \"{exchange_name}\" on \"{routing_key}\": {message}")
+
+        # Format routing key for better readability
+        routingKeyFormatted = constants.format_routing_key(routing_key)
 
         # Log the reception
-        logging.info(f"➡️ Received \"{exchange_name}\" on \"{routing_key}\": {message}")
+        logging.info(f"➡️ Received on \"{exchange_name}\" on \"{routingKeyFormatted}\": {message}")
 
         # Manage message received from the editor exchange
         if exchange_name == constants.EDITORS_EXCHANGE_NAME:

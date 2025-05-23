@@ -70,8 +70,8 @@ class Editor(threading.Thread):
         Connect to the broker using TLS and authentication
         """
         # Create SSL context with CA and client certificates
-        context = ssl.create_default_context(cafile="certs/ca_certificate.pem")
-        context.load_cert_chain("certs/client_certificate.pem", "certs/client_key.pem")
+        context = ssl.create_default_context(cafile=constants.CA_CERT_FILE)
+        context.load_cert_chain(constants.CLIENT_CERT_FILE, constants.CLIENT_KEY_FILE)
 
         # Provide RabbitMQ credentials
         credentials = pika.PlainCredentials(self.username, self.password)
@@ -96,17 +96,18 @@ class Editor(threading.Thread):
             f"{self.name} is online."
         )
 
-    def __send_to_subscribers(self, exchange: str, content: str, routing: str = ''):
+    def __send_to_subscribers(self, exchange: str, content: str, routing: str = ""):
         """
         Send data to the subscribers
 
         :param exchange: The name of the exchange
         :param content: The content to send
-        :param routing: The routing key to bind. Default is ''
+        :param routing: The routing key to bind. Default is empty
         """
         # Publish on the queue
         self.channel.basic_publish(exchange=exchange, body=content, routing_key=routing)
-        logging.info(f"➡️ Sent \"{exchange}\" on \"{routing}\": {content}")
+        routingKeyFormatted = f" on \"{routing}\"" if routing != "" else ""
+        logging.info(f"➡️ Sent on \"{exchange}\"{routingKeyFormatted}: {content}")
 
     def exit(self):
         """
