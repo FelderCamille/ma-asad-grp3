@@ -27,7 +27,7 @@ class Subscriber(threading.Thread):
         self.password = password
         self.running = True  # flag to indicate if the subscriber is running
         self.queue_name = None  # name of the queue. Defined later
-        self.news_routing = set() # set to store the routing keys
+        self.map_news_routing_priory = {} # map to store the routing keys and their priorities
         self.online_editors = set() # set to store online editors
 
     def run(self):
@@ -85,13 +85,30 @@ class Subscriber(threading.Thread):
         )
         logging.debug(f"Queue {self.queue_name} is waiting for messages.")
 
-    def __add_subscription(self, exchange: str, routing: str = ""):
+    def __add_subscription(self, exchange: str, routing: str = "", priority: str = constants.PRIORITY_HIGH):
         """
         Subscribe to a queue
 
         :param exchange: The exchange name to subscribe to
         :param routing: The routing key to bind to the queue. Default is ""
-        """        
+        :param priority: The priority of the subscription. Default is constants.PRIORITY_HIGH
+        """
+        # Check if priority is valid
+        if priority not in [constants.PRIORITY_LOW, constants.PRIORITY_MEDIUM, constants.PRIORITY_HIGH]:
+            logging.error(f"⚡️ Invalid priority: {priority}. Must be one of \"{constants.PRIORITY_LOW}\", \"{constants.PRIORITY_MEDIUM}\", \"{constants.PRIORITY_HIGH}\".")
+            return
+
+        # Check if not already subscribed
+        if routing in self.map_news_routing_priory:
+            routingKeyFormatted = constants.format_routing_key(routing)
+            if self.map_news_routing_priory[routing] == priority:
+                logging.warning(f"⚡️ Already subscribed to {routingKeyFormatted} with \"{priority}\" priority.")
+                return
+            else:
+                self.map_news_routing_priory[routing] = priority
+                logging.warning(f"✅ Changed priority of subscription to {routingKeyFormatted} to to \"{priority}\".")
+                return
+
         # Bind the queue to the exchange (if the exchange is of type 'fanout', the routing key is ignored)
         self.channel.queue_bind(exchange=exchange, queue=self.queue_name, routing_key=routing)
         logging.debug(f"Queue {self.queue_name} bound to exchange {exchange} with routing key {routing}.")
@@ -100,8 +117,8 @@ class Subscriber(threading.Thread):
         routingKeyFormatted = constants.format_routing_key(routing)
 
         # Store the mapping of exchange to queue
-        self.news_routing.add(routing)
-        logging.info(f"✅ Subscribed to {exchange} with routing key {routingKeyFormatted}.")
+        self.map_news_routing_priory[routing] = priority
+        logging.info(f"✅ Subscribed to {exchange} with routing key {routingKeyFormatted} and {priority} priority.")
 
     def __remove_subscription(self, exchange: str, routing: str):
         """
@@ -111,12 +128,12 @@ class Subscriber(threading.Thread):
         :param routing: The routing key to unbind from the queue
         """
         routingKeyFormatted = constants.format_routing_key(routing)
-        if routing in self.news_routing:
+        if routing in self.map_news_routing_priory:
             self.channel.queue_unbind(exchange=exchange, queue=self.queue_name, routing_key=routing)
-            self.news_routing.remove(routing)
-            logging.info(f"💢 Unsubscribed from {exchange} on {routingKeyFormatted}.")
+            del self.map_news_routing_priory[routing]
+            logging.info(f"💢 Unsubscribed from {routingKeyFormatted}.")
         else:
-            logging.warning(f"⚡️ Not subscribed to {exchange} on {routingKeyFormatted}.")
+            logging.warning(f"⚡️ Not subscribed to {routingKeyFormatted}.")
 
     def __wait_for_news(self):
         """
@@ -132,16 +149,16 @@ class Subscriber(threading.Thread):
     def __listen_for_commands(self):
         """
         A thread that listens for user commands:
-          - subscribe <topic>
-          - unsubscribe <topic>
+          - subscribe <topic> [<priority_level>]
+          - unsubscribe <topic> [<priority_level>]
           - subscribeeditor <editorName>
           - unsubscribeeditor <editorName>
           - exit
         """
         print("Commands available:")
-        print("- subscribe <topic>")
+        print("- subscribe <topic> [<priority>]")
         print("- unsubscribe <topic>")
-        print("- subscribeeditor <editorName>")
+        print("- subscribeeditor <editorName> [<priority>]")
         print("- unsubscribeeditor <editorName>")
         print("- exit")
 
@@ -149,26 +166,33 @@ class Subscriber(threading.Thread):
             try:
                 # Get the command from the user
                 cmd = input(">> ").strip()
-                args = cmd.split(" ", 1)
+                args = cmd.split(" ")
+                # Exit the system if the command is "exit"
                 if cmd == "exit":
                     self.exit()
                     break
+                # Handle subscribe/unsubscribe commands
                 elif len(args) > 1:
+                    # Get the topic or editor name
                     parameter = args[1]
+                    # Get the priority if provided
+                    priority = None
+                    if len(args) > 2:
+                        priority = args[2]
                     if cmd.startswith("subscribe "):
                         # ex: subscribe weather
                         typeToCheck = parameter.split('.')[0]
                         if typeToCheck not in constants.NEWS_TYPES:
                             logging.error(f"⚡️ Invalid news type: {parameter}")
                             continue
-                        self.__add_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"*.{parameter}.#")
+                        self.__add_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"*.{parameter}.#", priority=priority)
                     elif cmd.startswith("unsubscribe "):
                         # ex: unsubscribe weather
                         self.__remove_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"*.{parameter}.#")
 
                     elif cmd.startswith("subscribeeditor "):
                         # ex: subscribeeditor Bob
-                        self.__add_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"{parameter}.#")
+                        self.__add_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"{parameter}.#", priority=priority)
                     elif cmd.startswith("unsubscribeeditor "):
                         # ex: unsubscribeeditor Bob
                         self.__remove_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"{parameter}.#")
