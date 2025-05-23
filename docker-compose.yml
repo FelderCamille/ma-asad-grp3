@@ -15,8 +15,5 @@ services:
     hostname: "rabbit"
     restart: always
     volumes:
-      - rabbitmq-data:/var/lib/rabbitmq/
-
-volumes:
-  rabbitmq-data:
-    driver: local
+      - "./rabbitmq.config:/etc/rabbitmq/rabbitmq.config"
+      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json"
