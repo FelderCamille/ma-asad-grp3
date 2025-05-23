@@ -43,11 +43,12 @@ Subscribers can subscribe or unsubscribe both by **news categories** or **publis
 Open a terminal in the **root directory** (where `docker-compose.yml` resides) and run:
 
 ```bash
+sudo ./certs/generate-certs.sh
 docker compose up -d
 ```
 
 Visit [http://localhost:15672](http://localhost:15672) for the RabbitMQ Management UI.  
-- Default credentials: `guest` / `guest`.
+- Default credentials: `admin` / `supersecureadmin`.
 
 ---
 

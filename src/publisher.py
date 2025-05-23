@@ -79,14 +79,12 @@ class Editor(threading.Thread):
         # Set connection parameters including SSL
         parameters = pika.ConnectionParameters(
             host=constants.RABBITMQ_HOST,
-            port=5671,
+            port=constants.RABBITMQ_PORT,
             virtual_host=self.vhost,
             credentials=credentials,
             ssl_options=pika.SSLOptions(context)
         )   
-        self.connection = pika.BlockingConnection(
-            parameters
-        )
+        self.connection = pika.BlockingConnection(parameters)
         self.channel = self.connection.channel()
         logging.info("Editor connected.")
 

@@ -2,6 +2,9 @@
 
 # Broker host
 RABBITMQ_HOST = 'localhost'
+# Broker port (TLS)
+RABBITMQ_PORT = 5671
+
 # Exchange type
 EXCHANGE_TYPE = 'fanout'
 # Editors exchange name
