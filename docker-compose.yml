@@ -9,6 +9,9 @@ services:
     ports:
       - "5672:5672"   # AMQP
       - "15672:15672" # Web UI
+    environment:
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: supersecureadmin
     hostname: "rabbit"
     restart: always
     volumes:

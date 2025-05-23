@@ -1,8 +1,9 @@
 {
   "users": [
     {"name": "admin", "password": "supersecureadmin", "tags": "administrator"},
-    {"name": "editor1", "password": "editorpass", "tags": "publisher"},
-    {"name": "subscriber1", "password": "subpass", "tags": "subscriber"}
+    {"name": "editor1", "password": "editorpass"},
+    {"name": "subscriber1", "password": "subpass"},
+    {"name": "guest", "ensure": "absent"}
   ],
   "vhosts": [
     {"name": "publisher_vhost"},
@@ -13,7 +14,7 @@
     {
       "user": "editor1",
       "vhost": "publisher_vhost",
-      "configure": "^editors$",
+      "configure": ".*",
       "write": ".*",
       "read": ""
     },
