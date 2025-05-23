@@ -15,7 +15,7 @@ class Editor(threading.Thread):
     An editor can send news to the broker
     """
 
-    def __init__(self, editor_name, username, password, vhost = "publisher_vhost"):
+    def __init__(self, editor_name, username, password, vhost = "news"):
         """
         Constructor
         """

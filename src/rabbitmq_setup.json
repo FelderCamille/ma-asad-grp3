@@ -1,47 +1,31 @@
 {
   "users": [
     {"name": "admin", "password": "supersecureadmin", "tags": "administrator"},
-    {"name": "editor1", "password": "editorpass"},
-    {"name": "subscriber1", "password": "subpass"},
-    {"name": "guest", "ensure": "absent"}
+    {"name": "editor1", "password": "editorpass", "tags": "publisher"},
+    {"name": "subscriber1", "password": "subpass", "tags": "subscriber"},
+    {"name": "guest", "ensure": "absent", "tags": ""}
   ],
   "vhosts": [
-    {"name": "publisher_vhost"},
-    {"name": "subscriber_vhost"},
-    {"name": "admin"}
+    {"name": "news"}
   ],
   "permissions": [
     {
       "user": "editor1",
-      "vhost": "publisher_vhost",
+      "vhost": "news",
       "configure": ".*",
       "write": ".*",
-      "read": ""
+      "read": ""  
     },
     {
       "user": "subscriber1",
-      "vhost": "subscriber_vhost",
+      "vhost": "news",
       "configure": ".*",
       "write": ".*",
       "read": ".*"
     },
     {
       "user": "admin",
-      "vhost": "/admin",
-      "configure": ".*",
-      "write": ".*",
-      "read": ".*"
-    },
-    {
-      "user": "admin",
-      "vhost": "/publisher",
-      "configure": ".*",
-      "write": ".*",
-      "read": ".*"
-    },
-    {
-      "user": "admin",
-      "vhost": "/subscriber",
+      "vhost": "news",
       "configure": ".*",
       "write": ".*",
       "read": ".*"

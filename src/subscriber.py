@@ -17,7 +17,7 @@ class Subscriber(threading.Thread):
     A subscriber can subscribe to editors, news types, and receive news
     """
 
-    def __init__(self, username, password, vhost = "subscriber_vhost"):
+    def __init__(self, username, password, vhost = "news"):
         """
         Constructor
         """
