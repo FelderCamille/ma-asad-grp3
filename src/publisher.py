@@ -7,6 +7,7 @@ Manage the news editor
 import logging
 import threading
 import pika
+import ssl
 
 import constants
 
@@ -66,13 +67,22 @@ class Editor(threading.Thread):
 
     def __connect(self):
         """
-        Connect to the broker
+        Connect to the broker using TLS and authentication
         """
+        # Create SSL context with CA and client certificates
+        context = ssl.create_default_context(cafile="certs/ca_certificate.pem")
+        context.load_cert_chain("certs/client_certificate.pem", "certs/client_key.pem")
+
+        # Provide RabbitMQ credentials
         credentials = pika.PlainCredentials(self.username, self.password)
+
+        # Set connection parameters including SSL
         parameters = pika.ConnectionParameters(
             host=constants.RABBITMQ_HOST,
+            port=5671,
             virtual_host=self.vhost,
-            credentials=credentials
+            credentials=credentials,
+            ssl_options=pika.SSLOptions(context)
         )   
         self.connection = pika.BlockingConnection(
             parameters
