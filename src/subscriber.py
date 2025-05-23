@@ -9,6 +9,7 @@ import threading
 import pika
 import time
 import re
+import ssl
 
 import constants
 
@@ -50,16 +51,22 @@ class Subscriber(threading.Thread):
 
     def __connect(self):
         """
-        Connect to the broker
+        Connect to the broker using TLS and authentication
         """
-        crendentials = pika.PlainCredentials(self.username, self.password)
+        # Create SSL context with CA and client certificates
+        context = ssl.create_default_context(cafile="certs/ca_certificate.pem")
+        context.load_cert_chain("certs/client_certificate.pem", "certs/client_key.pem")
+
+        # Provide RabbitMQ credentials
+        credentials = pika.PlainCredentials(self.username, self.password)
+
+        # Set connection parameters including SSL
         parameters = pika.ConnectionParameters(
             host=constants.RABBITMQ_HOST,
+            port=5671,
             virtual_host=self.vhost,
-            credentials=crendentials
-        )
-        self.connection = pika.BlockingConnection(
-            parameters
+            credentials=credentials,
+            ssl_options=pika.SSLOptions(context)
         )
         self.channel = self.connection.channel()
         logging.info("Subscriber connected.")

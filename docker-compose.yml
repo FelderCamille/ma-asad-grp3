@@ -8,6 +8,7 @@ services:
     image: rabbitmq:4.0-management
     ports:
       - "5672:5672"   # AMQP
+      - "5671:5671"   # TLS
       - "15672:15672" # Web UI
     environment:
       RABBITMQ_DEFAULT_USER: admin
@@ -17,3 +18,4 @@ services:
     volumes:
       - "./rabbitmq.config:/etc/rabbitmq/rabbitmq.config"
       - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json"
+      - "./certs:/etc/rabbitmq/certs"
