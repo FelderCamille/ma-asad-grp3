@@ -28,6 +28,12 @@ class Subscriber(threading.Thread):
         self.running = True  # flag to indicate if the subscriber is running
         self.queue_name = None  # name of the queue. Defined later
         self.map_news_routing_priory = {} # map to store the routing keys and their priorities
+        self.messages = {
+            constants.PRIORITY_LOW: [],
+            constants.PRIORITY_MEDIUM: [],
+            constants.PRIORITY_HIGH: []
+        } # list to store messages received
+        self.current_priority = constants.PRIORITY_HIGH # current priority level to show
         self.online_editors = set() # set to store online editors
 
     def run(self):
@@ -83,7 +89,7 @@ class Subscriber(threading.Thread):
         self.channel.basic_consume(
             queue=self.queue_name, on_message_callback=self.__callback, auto_ack=True
         )
-        logging.debug(f"Queue {self.queue_name} is waiting for messages.")
+        logging.debug(f"Queue {self.queue_name} is waiting for messages")
 
     def __add_subscription(self, exchange: str, routing: str = "", priority: str = constants.PRIORITY_HIGH):
         """
@@ -100,7 +106,7 @@ class Subscriber(threading.Thread):
 
         # Check if not already subscribed
         if routing in self.map_news_routing_priory:
-            routingKeyFormatted = constants.format_routing_key(routing)
+            routingKeyFormatted = self.__format_routing_key(routing)
             if self.map_news_routing_priory[routing] == priority:
                 logging.warning(f"⚡️ Already subscribed to {routingKeyFormatted} with \"{priority}\" priority.")
                 return
@@ -114,7 +120,7 @@ class Subscriber(threading.Thread):
         logging.debug(f"Queue {self.queue_name} bound to exchange {exchange} with routing key {routing}.")
         
         # Format routing key for better readability
-        routingKeyFormatted = constants.format_routing_key(routing)
+        routingKeyFormatted = self.__format_routing_key(routing)
 
         # Store the mapping of exchange to queue
         self.map_news_routing_priory[routing] = priority
@@ -127,7 +133,7 @@ class Subscriber(threading.Thread):
         :param exchange: The exchange name which the queue is bound to
         :param routing: The routing key to unbind from the queue
         """
-        routingKeyFormatted = constants.format_routing_key(routing)
+        routingKeyFormatted = self.__format_routing_key(routing)
         if routing in self.map_news_routing_priory:
             self.channel.queue_unbind(exchange=exchange, queue=self.queue_name, routing_key=routing)
             del self.map_news_routing_priory[routing]
@@ -139,7 +145,7 @@ class Subscriber(threading.Thread):
         """
         Wait for news
         """
-        logging.info("🚀 Subscriber is waiting for news.")
+        logging.info(f"🚀 Subscriber is waiting for news. Currently showing subscriptions of priority \"{self.current_priority}\".")
         while self.running:
             self.connection.process_data_events()
             time.sleep(0.1)
@@ -149,17 +155,19 @@ class Subscriber(threading.Thread):
     def __listen_for_commands(self):
         """
         A thread that listens for user commands:
-          - subscribe <topic> [<priority_level>]
-          - unsubscribe <topic> [<priority_level>]
+          - subscribe <topic> [<priority_level_name>]
+          - unsubscribe <topic> [<priority_level_name>]
           - subscribeeditor <editorName>
           - unsubscribeeditor <editorName>
+          - showPriority <priority_level_name>
           - exit
         """
         print("Commands available:")
-        print("- subscribe <topic> [<priority>]")
+        print("- subscribe <topic> [<low/medium/high>]")
         print("- unsubscribe <topic>")
-        print("- subscribeeditor <editorName> [<priority>]")
+        print("- subscribeeditor <editorName> [<low/medium/high>]")
         print("- unsubscribeeditor <editorName>")
+        print("- showPriority <low/medium/high>")
         print("- exit")
 
         while self.running:
@@ -167,6 +175,9 @@ class Subscriber(threading.Thread):
                 # Get the command from the user
                 cmd = input(">> ").strip()
                 args = cmd.split(" ")
+                # Skip if the command is empty
+                if cmd == "":
+                    continue
                 # Exit the system if the command is "exit"
                 if cmd == "exit":
                     self.exit()
@@ -176,7 +187,7 @@ class Subscriber(threading.Thread):
                     # Get the topic or editor name
                     parameter = args[1]
                     # Get the priority if provided
-                    priority = None
+                    priority = constants.PRIORITY_HIGH
                     if len(args) > 2:
                         priority = args[2]
                     if cmd.startswith("subscribe "):
@@ -196,6 +207,19 @@ class Subscriber(threading.Thread):
                     elif cmd.startswith("unsubscribeeditor "):
                         # ex: unsubscribeeditor Bob
                         self.__remove_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"{parameter}.#")
+
+                    elif cmd.startswith("showPriority "):
+                        priority = args[1]
+                        # ex: showPriority high
+                        if priority in [constants.PRIORITY_LOW, constants.PRIORITY_MEDIUM, constants.PRIORITY_HIGH]:
+                            self.current_priority = priority
+                            logging.info(f"🚩 Showing only news with priority \"{priority}\".")
+                            if (self.messages[priority] != []):
+                                logging.info(f"🏛️ News with priority \"{priority}\":")
+                                for message in self.messages[priority]:
+                                    logging.info(f"- {message}")
+                        else:
+                            logging.error(f"⚡️ Invalid priority: {priority}. Must be one of \"{constants.PRIORITY_LOW}\", \"{constants.PRIORITY_MEDIUM}\", \"{constants.PRIORITY_HIGH}\".")
                     else:
                         logging.error(f"⚡️ Invalid command: {cmd}")
                 else:
@@ -216,19 +240,61 @@ class Subscriber(threading.Thread):
         exchange_name = method.exchange
         routing_key = method.routing_key
         message = body.decode('utf-8')
+
         logging.debug(f"Received on \"{exchange_name}\" on \"{routing_key}\": {message}")
 
-        # Format routing key for better readability
-        routingKeyFormatted = constants.format_routing_key(routing_key)
+        # Get the priority associated with the routing key
+        routingKeyFormatted = self.__format_routing_key(routing_key)
+        for pattern, p in self.map_news_routing_priory.items():
+            if self.__matches_pattern(pattern, routing_key):
+                priority = p
+                logging.debug(f"Found priority \"{priority}\" for routing key \"{routingKeyFormatted}\".")
+                break
+        if (priority is None):
+            logging.error(f"⚡️ No priority found for routing key \"{routingKeyFormatted}\". Ignoring message.")
 
-        # Log the reception
-        logging.info(f"➡️ Received on \"{exchange_name}\" on \"{routingKeyFormatted}\": {message}")
+        # Log the reception of the message
+        text = f"➡️ Received on \"{exchange_name}\" on \"{routingKeyFormatted}\": {message}"
+        if (priority == self.current_priority):
+            logging.info(text)
+
+        # Store the received message in the appropriate priority list
+        self.messages[priority].append(text)
 
         # Manage message received from the editor exchange
         if exchange_name == constants.EDITORS_EXCHANGE_NAME:
-            self.__handle_editor_announcement(message)
+            self.__handle_editor_announcement(message, priority=priority)
 
-    def __handle_editor_announcement(self, announcement: str):
+    def __matches_pattern(self, pattern: str, routing_key: str) -> bool:
+        """
+        Check if a routing key matches a pattern with wildcards.
+        RabbitMQ wildcards:
+        * (star) matches exactly one word
+        # (hash) matches zero or more words
+        """
+        pattern_parts = pattern.split('.')
+        key_parts = routing_key.split('.')
+
+        i = j = 0
+        while i < len(pattern_parts) and j < len(key_parts):
+            if pattern_parts[i] == '#':
+                return True  # '#' matches the rest
+            elif pattern_parts[i] == '*':
+                i += 1
+                j += 1
+            elif pattern_parts[i] == key_parts[j]:
+                i += 1
+                j += 1
+            else:
+                return False
+
+        # Handle remaining parts
+        if i < len(pattern_parts) and pattern_parts[i] == '#':
+            i += 1
+
+        return i == len(pattern_parts) and j == len(key_parts)
+
+    def __handle_editor_announcement(self, announcement: str, priority: str):
         """
         Update the editor list based on the announcement received.
         Example of announcement:
@@ -236,20 +302,31 @@ class Subscriber(threading.Thread):
           "Editor \"Bob\" is offline."
 
         :param announcement: The announcement message
+        :param priority: The priority of the announcement
         """
         # Regex to extract the editor name and status
         match = re.match(r'Editor "([^"]+)" is (online|offline)\.', announcement)
         if match:
             editor_name = match.group(1)
             status = match.group(2)
+            text = ""
             if status == "online":
                 self.online_editors.add(editor_name)
-                logging.info(f"✨ Editor {editor_name} added to online list.")
+                text = f"✨ Editor {editor_name} added to online list."
             else:
                 # offline
                 if editor_name in self.online_editors:
                     self.online_editors.remove(editor_name)
-                    logging.info(f"🛑 Editor {editor_name} removed from online list.")
+                    text = f"🛑 Editor {editor_name} removed from online list."
+            if text != "":
+                self.messages[priority].append(text)
+                logging.info(text)
+
+    def __format_routing_key(routing_key: str) -> str:
+        """
+        Format the routing key to better readability in the logs
+        """
+        return routing_key.replace('.#', '').replace('*.', '')
 
     def exit(self):
         """

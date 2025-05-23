@@ -37,10 +37,3 @@ NEWS_TYPES = [
 PRIORITY_LOW = 'low'
 PRIORITY_MEDIUM = 'medium'
 PRIORITY_HIGH = 'high'
-
-# Utils
-def format_routing_key(routing_key: str) -> str:
-    """
-    Format the routing key to better readability in the logs
-    """
-    return routing_key.replace('.#', '').replace('*.', '')
