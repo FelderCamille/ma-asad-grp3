@@ -18,16 +18,16 @@ class Subscriber(threading.Thread):
     A subscriber can subscribe to editors, news types, and receive news
     """
 
-    def __init__(self, username, password, vhost = "news"):
+    def __init__(self, username, password):
         """
         Constructor
         """
         super(Subscriber, self).__init__()  # execute super class constructor
         self.username = username
         self.password = password
-        self.vhost = vhost
         self.running = True  # flag to indicate if the subscriber is running
-        self.exchange_queue_map = {} # dictionary to store the mapping of exchanges to queues
+        self.queue_name = None  # name of the queue. Defined later
+        self.news_routing = set() # set to store the routing keys
         self.online_editors = set() # set to store online editors
 
     def run(self):
@@ -38,7 +38,7 @@ class Subscriber(threading.Thread):
         self.__connect()
 
         # Subscribe to "editors" exchange to receive announcements of who is online or offline
-        self.__add_subscription(constants.EDITORS_EXCHANGE_NAME)
+        self.__add_subscription(exchange=constants.EDITORS_EXCHANGE_NAME)
 
         # Start thread to listen to subscribe/unsubscribe commands
         command_thread = threading.Thread(target=self.__listen_for_commands)
@@ -64,54 +64,55 @@ class Subscriber(threading.Thread):
         parameters = pika.ConnectionParameters(
             host=constants.RABBITMQ_HOST,
             port=constants.RABBITMQ_PORT,
-            virtual_host=self.vhost,
+            virtual_host=constants.RABBITMQ_VHOST,
             credentials=credentials,
             ssl_options=pika.SSLOptions(context)
         )
+
+        # Connect to the broker
         self.connection = pika.BlockingConnection(parameters)
         self.channel = self.connection.channel()
         logging.info("Subscriber connected.")
 
-    def __add_subscription(self, name: str):
+        # Create a temporary queue (exclusive)
+        queue_result = self.channel.queue_declare(queue='', exclusive=True)
+        self.queue_name = queue_result.method.queue
+        logging.debug(f"Queue {self.queue_name} created.")
+
+        # Subscribe to the queue
+        self.channel.basic_consume(
+            queue=self.queue_name, on_message_callback=self.__callback, auto_ack=True
+        )
+        logging.debug(f"Queue {self.queue_name} is waiting for messages.")
+
+    def __add_subscription(self, exchange: str, routing: str = ""):
         """
         Subscribe to a queue
 
-        :param name: The exchange name to subscribe to
-        """
-        # Create the exchange if not exists
-        self.channel.exchange_declare(exchange=name, exchange_type=constants.EXCHANGE_TYPE)
-        logging.debug(f"Exchange {name} created if does not exist.")
-        
-        # Create a temporary queue (exclusive)
-        result = self.channel.queue_declare(queue='', exclusive=True)
-        queue_name = result.method.queue
+        :param exchange: The exchange name to subscribe to
+        :param routing: The routing key to bind to the queue. Default is ""
+        """        
+        # Bind the queue to the exchange (if the exchange is of type 'fanout', the routing key is ignored)
+        self.channel.queue_bind(exchange=exchange, queue=self.queue_name, routing_key=routing)
+        logging.debug(f"Queue {self.queue_name} bound to exchange {exchange} with routing key {routing}.")
         
         # Store the mapping of exchange to queue
-        self.exchange_queue_map[name] = queue_name
-        
-        # Bind the queue to the exchange
-        self.channel.queue_bind(exchange=name, queue=queue_name)
-        logging.debug(f"Queue {queue_name} created and bound to exchange {name}.")
-        
-        # Subscribe to the queue
-        self.channel.basic_consume(
-            queue=queue_name, on_message_callback=self.__callback, auto_ack=True
-        )
-        logging.info(f"✅ Subscribed to {name}.")
+        self.news_routing.add(routing)
+        logging.info(f"✅ Subscribed to {exchange} with routing key {routing}.")
 
-    def __remove_subscription(self, name: str):
+    def __remove_subscription(self, exchange: str, routing: str):
         """
-        Unsubscribe from a queue (unbind from exchange)
+        Unsubscribe from a queue routing key
 
-        :param name: The exchange name to unsubscribe from
+        :param exchange: The exchange name which the queue is bound to
+        :param routing: The routing key to unbind from the queue
         """
-        if name in self.exchange_queue_map:
-            queue_name = self.exchange_queue_map[name]
-            self.channel.queue_unbind(exchange=name, queue=queue_name)
-            del self.exchange_queue_map[name]
-            logging.info(f"💢 Unsubscribed from {name}.")
+        if routing in self.news_routing:
+            self.channel.queue_unbind(exchange=exchange, queue=self.queue_name, routing_key=routing)
+            self.news_routing.remove(routing)
+            logging.info(f"💢 Unsubscribed from {exchange} on {routing}.")
         else:
-            logging.warning(f"⚡️ Not subscribed to {name}.")
+            logging.warning(f"⚡️ Not subscribed to {exchange} on {routing}.")
 
     def __wait_for_news(self):
         """
@@ -152,22 +153,21 @@ class Subscriber(threading.Thread):
                     parameter = args[1]
                     if cmd.startswith("subscribe "):
                         # ex: subscribe weather
-                        if parameter not in constants.NEWS_TYPES:
+                        typeToCheck = parameter.split('.')[0]
+                        if typeToCheck not in constants.NEWS_TYPES:
                             logging.error(f"⚡️ Invalid news type: {parameter}")
                             continue
-                        self.__add_subscription(parameter)
+                        self.__add_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"*.{parameter}.#")
                     elif cmd.startswith("unsubscribe "):
                         # ex: unsubscribe weather
-                        self.__remove_subscription(parameter)
+                        self.__remove_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"*.{parameter}.#")
 
                     elif cmd.startswith("subscribeeditor "):
-                        # ex: subscribeeditor editor_Bob
-                        editor_exchange = f"editor_{parameter.replace(' ', '_')}"
-                        self.__add_subscription(editor_exchange)
+                        # ex: subscribeeditor Bob
+                        self.__add_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"{parameter}.#")
                     elif cmd.startswith("unsubscribeeditor "):
-                        # ex: unsubscribeeditor editor_Bob
-                        editor_exchange = f"editor_{parameter.replace(' ', '_')}"
-                        self.__remove_subscription(editor_exchange)
+                        # ex: unsubscribeeditor Bob
+                        self.__remove_subscription(exchange=constants.NEWS_EXCHANGE_NAME, routing=f"{parameter}.#")
                     else:
                         logging.error(f"⚡️ Invalid command: {cmd}")
                 else:
@@ -186,10 +186,11 @@ class Subscriber(threading.Thread):
         :param body: The message body
         """
         exchange_name = method.exchange
+        routing_key = method.routing_key
         message = body.decode('utf-8')
 
         # Log the reception
-        logging.info(f"➡️ Received on \"{exchange_name}\": {message}")
+        logging.info(f"➡️ Received \"{exchange_name}\" on \"{routing_key}\": {message}")
 
         # Manage message received from the editor exchange
         if exchange_name == constants.EDITORS_EXCHANGE_NAME:

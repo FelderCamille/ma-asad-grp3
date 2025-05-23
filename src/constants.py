@@ -4,11 +4,24 @@
 RABBITMQ_HOST = 'localhost'
 # Broker port (TLS)
 RABBITMQ_PORT = 5671
+# Broker virtual host
+RABBITMQ_VHOST = 'news'
 
-# Exchange type
-EXCHANGE_TYPE = 'fanout'
-# Editors exchange name
+# News exchange name
+NEWS_EXCHANGE_NAME = 'news'
+# Editors announcement exchange name
 EDITORS_EXCHANGE_NAME = 'editors'
 
 # News types
-NEWS_TYPES = ['sports', 'politics', 'economy', 'weather']
+NEWS_TYPES = [
+    'sports', 
+    'politics', 
+    'economy', 
+    'weather',
+    'history',
+    'technology',
+    'entertainment',
+    'health',
+    'science',
+    'education',
+]
