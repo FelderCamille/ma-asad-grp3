@@ -89,9 +89,10 @@ class Editor(threading.Thread):
                 break
             except Exception as e:
                 last_exc = e
-                logging.warning(f"⚠️  Publisher failed to connect to {host}:{port}: {e!r}")
+                logging.warning(f"⚠️  {host}:{port} unavailable ({e.__class__.__name__}); trying next node…")
         else:
-            raise ConnectionError(f"❌  Publisher could not connect to any node: {last_exc!r}")
+            logging.critical("❌  No RabbitMQ node reachable – giving up.")
+            raise SystemExit(1)
 
         # 4) Declare your exchanges
         self.channel.exchange_declare(

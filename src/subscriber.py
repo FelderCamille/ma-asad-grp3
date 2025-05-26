@@ -119,7 +119,7 @@ class Subscriber(threading.Thread):
 
             except Exception as e:
                 last_exc = e
-                logging.warning(f"⚠️ Could not connect to {host}:{port}: {e!r}")
+                logging.warning(f"⚠️ {host}:{port} unavailable ({e.__class__.__name__}); trying next…")
 
         raise ConnectionError(f"❌ All connection attempts failed: {last_exc!r}")
 

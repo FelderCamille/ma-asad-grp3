@@ -1,26 +1,32 @@
-# docker-compose-ha.yml
-# -----------------------------------------------------------------------------
-# Two-node RabbitMQ cluster (manual join via start_ha.sh)
-# -----------------------------------------------------------------------------
-services:
+version: '3.8'
 
+services:
   rabbit1:
     image: rabbitmq:3.13-management
     container_name: rabbit1
     hostname: rabbit1
+
     environment:
-      RABBITMQ_DEFAULT_USER:  admin
-      RABBITMQ_DEFAULT_PASS:  supersecureadmin
-      RABBITMQ_ERLANG_COOKIE: supercookie
-      RABBITMQ_NODENAME:      rabbit@rabbit1
+      RABBITMQ_DEFAULT_USER:   admin
+      RABBITMQ_DEFAULT_PASS:   supersecureadmin
+      RABBITMQ_ERLANG_COOKIE:  supercookie
+      RABBITMQ_NODENAME:       rabbit@rabbit1
+
     ports:
-      - "5671:5671"    # AMQPS (TLS)
-      - "5672:5672"    # AMQP (plain, optional)
-      - "15672:15672"  # Management UI
+      - "5671:5671"     # AMQPS (TLS for clients)
+      - "5672:5672"     # AMQP  (plain, optional)
+      - "15672:15672"   # Management UI
+      - "25671:25671"   # TLS clustering (debug / demo)
+
     volumes:
-      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf"             # your INI config
-      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json"    # users/vhost
-      - "./certs:/etc/rabbitmq/certs"                             # TLS certs
+      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"
+      - "./rabbitmq-env.conf:/etc/rabbitmq/rabbitmq-env.conf:ro"        # ← NEW
+      - "./inter_node_tls.config:/etc/rabbitmq/inter_node_tls.config:ro" # ← NEW
+      - "./certs/ca_certificate.pem:/etc/rabbitmq/certs/ca_certificate.pem:ro"
+      - "./certs/rabbit1_cert.pem:/etc/rabbitmq/certs/node_cert.pem:ro"
+      - "./certs/rabbit1_key.pem:/etc/rabbitmq/certs/node_key.pem:ro"
+      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json:ro"
+
     restart: unless-stopped
 
   rabbit2:
@@ -29,17 +35,26 @@ services:
     hostname: rabbit2
     depends_on:
       - rabbit1
+
     environment:
-      RABBITMQ_DEFAULT_USER:  admin
-      RABBITMQ_DEFAULT_PASS:  supersecureadmin
-      RABBITMQ_ERLANG_COOKIE: supercookie
-      RABBITMQ_NODENAME:      rabbit@rabbit2
+      RABBITMQ_DEFAULT_USER:   admin
+      RABBITMQ_DEFAULT_PASS:   supersecureadmin
+      RABBITMQ_ERLANG_COOKIE:  supercookie
+      RABBITMQ_NODENAME:       rabbit@rabbit2
+
     ports:
-      - "5673:5671"    # AMQPS on node-2
-      - "5674:5672"    # AMQP on node-2 (optional)
-      - "15673:15672"  # Management UI on node-2
+      - "5673:5671"     # AMQPS (TLS for clients)
+      - "5674:5672"     # AMQP  (plain, optional)
+      - "15673:15672"   # Management UI
+      - "25673:25671"   # TLS clustering (debug / demo)
+
     volumes:
-      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf"
-      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json"
-      - "./certs:/etc/rabbitmq/certs"
+      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"
+      - "./rabbitmq-env.conf:/etc/rabbitmq/rabbitmq-env.conf:ro"        # ← NEW
+      - "./inter_node_tls.config:/etc/rabbitmq/inter_node_tls.config:ro" # ← NEW
+      - "./certs/ca_certificate.pem:/etc/rabbitmq/certs/ca_certificate.pem:ro"
+      - "./certs/rabbit2_cert.pem:/etc/rabbitmq/certs/node_cert.pem:ro"
+      - "./certs/rabbit2_key.pem:/etc/rabbitmq/certs/node_key.pem:ro"
+      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json:ro"
+
     restart: unless-stopped
