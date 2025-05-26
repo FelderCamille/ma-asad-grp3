@@ -10,8 +10,11 @@ import pika
 import time
 import re
 import ssl
-
+import pika.exceptions
 import constants
+
+logging.getLogger("pika").setLevel(logging.ERROR)
+logging.getLogger("pika.adapters.utils.io_services_utils").setLevel(logging.ERROR)
 
 class Subscriber(threading.Thread):
     """
@@ -36,60 +39,127 @@ class Subscriber(threading.Thread):
         self.current_priority = constants.PRIORITY_HIGH # current priority level to show
         self.online_editors = set() # set to store online editors
 
+    # ──────────────────────────────────────────────────────────
+    # main thread life-cycle
+    # ──────────────────────────────────────────────────────────
     def run(self):
         """
         Handle the lifecycle of the subscriber
         """
-        # Connect to the broker
+        # 1) Connect to the broker
         self.__connect()
 
-        # Subscribe to "editors" exchange to receive announcements of who is online or offline
+        # 2) Always listen to editor announcements
         self.__add_subscription(exchange=constants.EDITORS_EXCHANGE_NAME)
 
-        # Start thread to listen to subscribe/unsubscribe commands
-        command_thread = threading.Thread(target=self.__listen_for_commands)
-        command_thread.daemon = True  # Daemonize thread
-        command_thread.name = "CommandListener"
+        # 3) Start the CLI command listener in a helper thread
+        command_thread = threading.Thread(target=self.__listen_for_commands,
+                                          daemon=True,
+                                          name="CommandListener")
         command_thread.start()
-        
-        # Loop to receive messages
+
+        # 4) Enter the main receive loop
         self.__wait_for_news()
 
+    # ──────────────────────────────────────────────────────────
+    # connection / channel setup  ← FIXED: now at class level
+    # ──────────────────────────────────────────────────────────
     def __connect(self):
         """
-        Connect to the broker using TLS and authentication
+        Connect to broker with TLS, authenticate, declare exchanges,
+        declare queue and (re)bind any existing subscriptions.
         """
-        # Create SSL context with CA and client certificates
+        # TLS setup
         context = ssl.create_default_context(cafile=constants.CA_CERT_FILE)
-        context.load_cert_chain(constants.CLIENT_CERT_FILE, constants.CLIENT_KEY_FILE)
+        context.load_cert_chain(constants.CLIENT_CERT_FILE,
+                                constants.CLIENT_KEY_FILE)
+        creds = pika.PlainCredentials(self.username, self.password)
 
-        # Provide RabbitMQ credentials
-        credentials = pika.PlainCredentials(self.username, self.password)
+        last_exc = None
+        for host, port in constants.RABBITMQ_NODES:
+            try:
+                params = pika.ConnectionParameters(
+                    host=host,
+                    port=port,
+                    virtual_host=constants.RABBITMQ_VHOST,
+                    credentials=creds,
+                    ssl_options=pika.SSLOptions(context),
+                    connection_attempts=3,
+                    retry_delay=2
+                )
+                self.connection = pika.BlockingConnection(params)
+                self.channel = self.connection.channel()
+                logging.info(f"✅ Connected to RabbitMQ at {host}:{port}")
 
-        # Set connection parameters including SSL
-        parameters = pika.ConnectionParameters(
-            host=constants.RABBITMQ_HOST,
-            port=constants.RABBITMQ_PORT,
-            virtual_host=constants.RABBITMQ_VHOST,
-            credentials=credentials,
-            ssl_options=pika.SSLOptions(context)
-        )
+                # Declare the two exchanges (fanout & topic)
+                self.channel.exchange_declare(
+                    exchange=constants.EDITORS_EXCHANGE_NAME,
+                    exchange_type='fanout',
+                    durable=True
+                )
+                self.channel.exchange_declare(
+                    exchange=constants.NEWS_EXCHANGE_NAME,
+                    exchange_type='topic',
+                    durable=True
+                )
 
-        # Connect to the broker
-        self.connection = pika.BlockingConnection(parameters)
-        self.channel = self.connection.channel()
-        logging.info("Subscriber connected.")
+                # Declare exclusive, auto-delete queue and start consuming
+                qr = self.channel.queue_declare(queue='', exclusive=True)
+                self.queue_name = qr.method.queue
+                self.channel.basic_consume(
+                    queue=self.queue_name,
+                    on_message_callback=self.__callback,
+                    auto_ack=True
+                )
+                logging.info(f"Subscriber queue '{self.queue_name}' declared")
 
-        # Create a temporary queue (exclusive)
-        queue_result = self.channel.queue_declare(queue='', exclusive=True)
-        self.queue_name = queue_result.method.queue
-        logging.debug(f"Queue {self.queue_name} created.")
+                # Rebind any prior subscriptions (on reconnect)
+                self.__rebind_subscriptions()
+                return
 
-        # Subscribe to the queue
-        self.channel.basic_consume(
-            queue=self.queue_name, on_message_callback=self.__callback, auto_ack=True
-        )
-        logging.debug(f"Queue {self.queue_name} is waiting for messages")
+            except Exception as e:
+                last_exc = e
+                logging.warning(f"⚠️ Could not connect to {host}:{port}: {e!r}")
+
+        raise ConnectionError(f"❌ All connection attempts failed: {last_exc!r}")
+
+    def __rebind_subscriptions(self):
+        """
+        After reconnect, re-bind the queue to all exchanges
+        based on stored routing keys.
+        """
+        if not self.map_news_routing_priory:
+            return
+
+        for routing, _ in self.map_news_routing_priory.items():
+            exch = (constants.EDITORS_EXCHANGE_NAME if routing == ""
+                    else constants.NEWS_EXCHANGE_NAME)
+            self.channel.queue_bind(
+                exchange=exch,
+                queue=self.queue_name,
+                routing_key=routing
+            )
+        logging.info("🔄 Rebound existing subscriptions after reconnect")
+
+    def __wait_for_news(self):
+        """
+        Main loop: process events and handle forced shutdowns by reconnecting.
+        """
+        logging.info(f"🚀 Waiting for news (showing '{self.current_priority}' priority)...")
+        while self.running:
+            try:
+                self.connection.process_data_events()
+            except pika.exceptions.AMQPConnectionError:
+                logging.warning("⚠️ Lost connection to broker—reconnecting…")
+                try:
+                    self.__connect()
+                    logging.info("🔌 Reconnected to broker.")
+                except Exception:
+                    logging.warning("⚠️ Reconnect attempt failed; will retry shortly.")
+                    time.sleep(2)
+                    continue
+            time.sleep(0.1)
+        self.connection.close()
 
     def __add_subscription(self, exchange: str, routing: str = "", priority: str = constants.PRIORITY_HIGH):
         """
@@ -140,17 +210,6 @@ class Subscriber(threading.Thread):
             logging.info(f"💢 Unsubscribed from {routingKeyFormatted}.")
         else:
             logging.warning(f"⚡️ Not subscribed to {routingKeyFormatted}.")
-
-    def __wait_for_news(self):
-        """
-        Wait for news
-        """
-        logging.info(f"🚀 Subscriber is waiting for news. Currently showing subscriptions of priority \"{self.current_priority}\".")
-        while self.running:
-            self.connection.process_data_events()
-            time.sleep(0.1)
-        # Safely close the connection
-        self.connection.close()
 
     def __listen_for_commands(self):
         """
@@ -324,7 +383,7 @@ class Subscriber(threading.Thread):
                 self.messages[priority].append(text)
                 logging.info(text)
 
-    def __format_routing_key(routing_key: str) -> str:
+    def __format_routing_key(self, routing_key: str) -> str:
         """
         Format the routing key to better readability in the logs
         """

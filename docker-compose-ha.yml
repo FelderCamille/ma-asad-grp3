@@ -1,5 +1,7 @@
 # docker-compose-ha.yml
-#########################
+# -----------------------------------------------------------------------------
+# Two-node RabbitMQ cluster (manual join via start_ha.sh)
+# -----------------------------------------------------------------------------
 services:
 
   rabbit1:
@@ -7,25 +9,37 @@ services:
     container_name: rabbit1
     hostname: rabbit1
     environment:
-      RABBITMQ_DEFAULT_USER:    admin
-      RABBITMQ_DEFAULT_PASS:    supersecureadmin
-      RABBITMQ_ERLANG_COOKIE:   supercookie
+      RABBITMQ_DEFAULT_USER:  admin
+      RABBITMQ_DEFAULT_PASS:  supersecureadmin
+      RABBITMQ_ERLANG_COOKIE: supercookie
+      RABBITMQ_NODENAME:      rabbit@rabbit1
     ports:
-      - "5672:5672"    # plain AMQP
-      - "15672:15672"  # HTTP UI
+      - "5671:5671"    # AMQPS (TLS)
+      - "5672:5672"    # AMQP (plain, optional)
+      - "15672:15672"  # Management UI
+    volumes:
+      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf"             # your INI config
+      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json"    # users/vhost
+      - "./certs:/etc/rabbitmq/certs"                             # TLS certs
     restart: unless-stopped
 
   rabbit2:
     image: rabbitmq:3.13-management
     container_name: rabbit2
     hostname: rabbit2
-    environment:
-      RABBITMQ_DEFAULT_USER:    admin
-      RABBITMQ_DEFAULT_PASS:    supersecureadmin
-      RABBITMQ_ERLANG_COOKIE:   supercookie
-    ports:
-      - "5673:5672"    # AMQP on node-2
-      - "15673:15672"  # HTTP UI on node-2
     depends_on:
       - rabbit1
+    environment:
+      RABBITMQ_DEFAULT_USER:  admin
+      RABBITMQ_DEFAULT_PASS:  supersecureadmin
+      RABBITMQ_ERLANG_COOKIE: supercookie
+      RABBITMQ_NODENAME:      rabbit@rabbit2
+    ports:
+      - "5673:5671"    # AMQPS on node-2
+      - "5674:5672"    # AMQP on node-2 (optional)
+      - "15673:15672"  # Management UI on node-2
+    volumes:
+      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf"
+      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json"
+      - "./certs:/etc/rabbitmq/certs"
     restart: unless-stopped

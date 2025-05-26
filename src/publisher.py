@@ -26,75 +26,91 @@ class Editor(threading.Thread):
         self.username = username
         self.password = password
         
-
     def run(self):
         """
-        Handle the lifecycle of the editor
+        Handle the lifecycle of the editor, with automatic fail-over.
         """
-        # Connect to the broker
+        # 1) Initial connect
         self.__connect()
-        # Send news
+
+        # 2) Read/send loop
         while self.running:
-            # Get the news type
-            types = input("Enter the news type(s) (multiple types must be separated by a space): ")
-            if types == '':
-                continue # skip if empty
-            types = types.split()
-            if not self.running:
+            try:
+                types = input("Enter the news type(s) (space-separated): ").split()
+                if not types:
+                    continue
+                content = input("Enter the news content: ")
+                if not content:
+                    continue
+
+                for type_ in types:
+                    self.__send_to_subscribers(
+                        exchange=constants.NEWS_EXCHANGE_NAME,
+                        content=content,
+                        routing=f"{self.editor_name}.{type_}"
+                    )
+            except pika.exceptions.AMQPConnectionError as e:
+                logging.warning(f"⚠️ Publisher lost connection: {e!r}, reconnecting…")
+                # try each node again
+                self.__connect()
+            except KeyboardInterrupt:
                 break
 
-            # Check if the types are valid, if not ask again
-            invalid_type = False
-            for type_ in types:
-                typeToCheck = type_.split('.')[0]
-                if typeToCheck not in constants.NEWS_TYPES:
-                    logging.error(f"Invalid news type: {typeToCheck}")
-                    invalid_type = True
-            if invalid_type:
-                continue
-
-            # Get the news content
-            content = input("Enter the news content: ")
-            if content == '':
-                continue # skip if empty
-            # Send the news
-            for type_ in types:
-                self.__send_to_subscribers(
-                    exchange=constants.NEWS_EXCHANGE_NAME, 
-                    content=content,
-                    routing=f"{self.editor_name}.{type_}"
-                )
+        # 3) Clean exit
+        self.exit()
 
     def __connect(self):
         """
-        Connect to the broker using TLS and authentication
+        Connect to the broker using TLS and authentication, with automatic fail-over.
         """
-        # Create SSL context with CA and client certificates
+        # 1) Build SSL context
         context = ssl.create_default_context(cafile=constants.CA_CERT_FILE)
         context.load_cert_chain(constants.CLIENT_CERT_FILE, constants.CLIENT_KEY_FILE)
 
-        # Provide RabbitMQ credentials
+        # 2) Credentials
         credentials = pika.PlainCredentials(self.username, self.password)
 
-        # Set connection parameters including SSL
-        parameters = pika.ConnectionParameters(
-            host=constants.RABBITMQ_HOST,
-            port=constants.RABBITMQ_PORT,
-            virtual_host=constants.RABBITMQ_VHOST,
-            credentials=credentials,
-            ssl_options=pika.SSLOptions(context)
+        # 3) Try each node in turn
+        last_exc = None
+        for host, port in constants.RABBITMQ_NODES:
+            try:
+                params = pika.ConnectionParameters(
+                    host=host,
+                    port=port,
+                    virtual_host=constants.RABBITMQ_VHOST,
+                    credentials=credentials,
+                    ssl_options=pika.SSLOptions(context),
+                    connection_attempts=3,
+                    retry_delay=2
+                )
+                self.connection = pika.BlockingConnection(params)
+                self.channel = self.connection.channel()
+                logging.info(f"✅ Publisher connected to {host}:{port}")
+                break
+            except Exception as e:
+                last_exc = e
+                logging.warning(f"⚠️  Publisher failed to connect to {host}:{port}: {e!r}")
+        else:
+            raise ConnectionError(f"❌  Publisher could not connect to any node: {last_exc!r}")
+
+        # 4) Declare your exchanges
+        self.channel.exchange_declare(
+            exchange=constants.EDITORS_EXCHANGE_NAME,
+            exchange_type='fanout',
+            durable=True
+        )
+        self.channel.exchange_declare(
+            exchange=constants.NEWS_EXCHANGE_NAME,
+            exchange_type='topic',
+            durable=True
         )
 
-        # Connect to the broker
-        self.connection = pika.BlockingConnection(parameters)
-        self.channel = self.connection.channel()
-        logging.info("Editor connected.")
-
-        # Publish that the editor is online
+        # 5) Announce this editor is online
         self.__send_to_subscribers(
             constants.EDITORS_EXCHANGE_NAME,
-            f"{self.name} is online."
+            f'Editor "{self.name}" is online.'
         )
+
 
     def __send_to_subscribers(self, exchange: str, content: str, routing: str = ""):
         """

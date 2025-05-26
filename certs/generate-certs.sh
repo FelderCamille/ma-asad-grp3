@@ -30,4 +30,4 @@ chmod 644 ca_certificate.pem
 # Change ownership back to current user if script was run with sudo
 chown $SUDO_USER:$SUDO_USER *.pem
 
-echo "✔ Certificats générés et permissions appliquées."
+echo "✅ Certificates generated and permissions applied."

@@ -1,10 +1,11 @@
 #!/usr/bin/env python
 
-# Broker host
-RABBITMQ_HOST = 'localhost'
-# Broker port (TLS)
-RABBITMQ_PORT = 5671
-# Broker virtual host
+# --- RabbitMQ nodes for failover (tls/AMQPS) ---
+RABBITMQ_NODES = [
+    ("localhost", 5671),   # node-1
+    ("localhost", 5673),   # node-2
+]
+# Virtual host
 RABBITMQ_VHOST = 'news'
 
 # CA certificate path
