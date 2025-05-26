@@ -177,7 +177,47 @@ docker start rabbit2
 
 ---
 
-## 🧼 STEP 8 — Clean up
+## 🔐 STEP 8 — Confirm TLS is active between pods
+
+> The inter-node connection uses TLS (port 25672) and mutual authentication with client certificates.
+
+To prove this:
+
+### ✅ Option A – terminal proof:
+
+```bash
+docker exec -it rabbit1 openssl s_client   -connect rabbit2:25672 -servername rabbit2 -brief   -CAfile /etc/rabbitmq/certs/ca_certificate.pem   -cert /etc/rabbitmq/certs/node_cert.pem   -key /etc/rabbitmq/certs/node_key.pem | head -8
+```
+
+You should see:
+
+```
+Protocol  : TLSv1.2
+Ciphersuite: ECDHE-RSA-AES256-GCM-SHA384
+Peer certificate: CN = rabbit2
+Verification: OK
+```
+
+### ✅ Option B – Management API:
+
+```bash
+curl -s -u admin:supersecureadmin   http://localhost:15672/api/nodes/rabbit%40rabbit1 | jq '.listeners[] | select(.protocol=="clustering") | {port,ssl}'
+```
+
+Should return:
+
+```json
+{
+  "port": 25672,
+  "ssl": true
+}
+```
+
+Take a screenshot of either result.
+
+---
+
+## 🧼 STEP 9 — Clean up
 
 ```bash
 docker compose -f docker-compose-ha.yml down -v
@@ -199,6 +239,7 @@ This setup:
 - Keeps working during node failures
 - Shows both editors and subscriber filtering
 - Confirms message delivery with UI and terminal outputs
+- Secures node-to-node communication with TLS
 
 ---
 
