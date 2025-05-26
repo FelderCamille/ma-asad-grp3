@@ -3,7 +3,6 @@
     {"name": "admin", "password": "supersecureadmin", "tags": "administrator"},
     {"name": "editor1", "password": "editorpass", "tags": "publisher"},
     {"name": "subscriber1", "password": "subpass", "tags": "subscriber"},
-    {"name": "subscriber2", "password": "subpass", "tags": "subscriber"},
     {"name": "guest", "ensure": "absent", "tags": ""}
   ],
   "vhosts": [
@@ -25,38 +24,11 @@
       "read": ".*"
     },
     {
-      "user": "subscriber2",
-      "vhost": "news",
-      "configure": ".*",
-      "write": ".*",
-      "read": ".*"
-    },
-    {
       "user": "admin",
       "vhost": "news",
       "configure": ".*",
       "write": ".*",
       "read": ".*"
-    }
-  ],
-  "exchanges":[
-    {
-      "name": "editors",
-      "vhost": "news",
-      "type": "fanout",
-      "durable": true,
-      "auto_delete": false,
-      "internal": false,
-      "arguments": {}
-    },
-    {
-      "name": "news",
-      "vhost": "news",
-      "type": "topic",
-      "durable": true,
-      "auto_delete": false,
-      "internal": false,
-      "arguments": {}
     }
   ]
 }

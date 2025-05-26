@@ -1,0 +1,31 @@
+# docker-compose-ha.yml
+#########################
+services:
+
+  rabbit1:
+    image: rabbitmq:3.13-management
+    container_name: rabbit1
+    hostname: rabbit1
+    environment:
+      RABBITMQ_DEFAULT_USER:    admin
+      RABBITMQ_DEFAULT_PASS:    supersecureadmin
+      RABBITMQ_ERLANG_COOKIE:   supercookie
+    ports:
+      - "5672:5672"    # plain AMQP
+      - "15672:15672"  # HTTP UI
+    restart: unless-stopped
+
+  rabbit2:
+    image: rabbitmq:3.13-management
+    container_name: rabbit2
+    hostname: rabbit2
+    environment:
+      RABBITMQ_DEFAULT_USER:    admin
+      RABBITMQ_DEFAULT_PASS:    supersecureadmin
+      RABBITMQ_ERLANG_COOKIE:   supercookie
+    ports:
+      - "5673:5672"    # AMQP on node-2
+      - "15673:15672"  # HTTP UI on node-2
+    depends_on:
+      - rabbit1
+    restart: unless-stopped

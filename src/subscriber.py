@@ -245,6 +245,7 @@ class Subscriber(threading.Thread):
 
         # Get the priority associated with the routing key
         routingKeyFormatted = self.__format_routing_key(routing_key)
+        priority = None
         for pattern, p in self.map_news_routing_priory.items():
             if self.__matches_pattern(pattern, routing_key):
                 priority = p
@@ -252,6 +253,7 @@ class Subscriber(threading.Thread):
                 break
         if (priority is None):
             logging.error(f"⚡️ No priority found for routing key \"{routingKeyFormatted}\". Ignoring message.")
+            return
 
         # Log the reception of the message
         text = f"➡️ Received on \"{exchange_name}\" on \"{routingKeyFormatted}\": {message}"
