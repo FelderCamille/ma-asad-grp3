@@ -11,6 +11,13 @@ import ssl
 
 import constants
 
+for name in list(logging.root.manager.loggerDict):
+    if name.startswith("pika"):
+        pika_log = logging.getLogger(name)
+        pika_log.setLevel(logging.CRITICAL)
+        # 2) remove any handler Pika attached (prints regardless of level)
+        pika_log.handlers.clear()
+
 class Editor(threading.Thread):
     """
     An editor can send news to the broker
@@ -31,8 +38,12 @@ class Editor(threading.Thread):
         Handle the lifecycle of the editor, with automatic fail-over.
         """
         # 1) Initial connect
-        self.__connect()
-
+        try:
+            self.__connect()
+        except ConnectionError as err:          # e.g. wrong password on both nodes
+            logging.error(err)
+            logging.error("❌ Authentication failed — publisher will exit.")
+            return
         # 2) Read/send loop
         while self.running:
             try:
@@ -89,7 +100,11 @@ class Editor(threading.Thread):
                 break
             except Exception as e:
                 last_exc = e
-                logging.warning(f"⚠️  {host}:{port} unavailable ({e.__class__.__name__}); trying next node…")
+                # if it’s bad credentials, don’t show Pika’s tracebacks again
+                if isinstance(e, pika.exceptions.ProbableAuthenticationError):
+                    logging.error("❌ Wrong username or password.")
+                    raise ConnectionError("authentication failed")   # abort fast
+                logging.warning(f"⚠️ {host}:{port} unavailable ({e.__class__.__name__}); trying next…")
         else:
             logging.critical("❌  No RabbitMQ node reachable – giving up.")
             raise SystemExit(1)

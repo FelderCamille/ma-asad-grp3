@@ -12,9 +12,12 @@ import re
 import ssl
 import pika.exceptions
 import constants
-
-logging.getLogger("pika").setLevel(logging.ERROR)
-logging.getLogger("pika.adapters.utils.io_services_utils").setLevel(logging.ERROR)
+for name in list(logging.root.manager.loggerDict):
+    if name.startswith("pika"):
+        pika_log = logging.getLogger(name)
+        pika_log.setLevel(logging.CRITICAL)
+        # 2) remove any handler Pika attached (prints regardless of level)
+        pika_log.handlers.clear()
 
 class Subscriber(threading.Thread):
     """
@@ -47,8 +50,12 @@ class Subscriber(threading.Thread):
         Handle the lifecycle of the subscriber
         """
         # 1) Connect to the broker
-        self.__connect()
-
+        try:
+            self.__connect()
+        except ConnectionError as err:          # e.g. wrong password on both nodes
+            logging.error(err)
+            logging.error("❌ Authentication failed — subscriber will exit.")
+            return
         # 2) Always listen to editor announcements
         self.__add_subscription(exchange=constants.EDITORS_EXCHANGE_NAME)
 
@@ -119,6 +126,10 @@ class Subscriber(threading.Thread):
 
             except Exception as e:
                 last_exc = e
+                # if it’s bad credentials, don’t show Pika’s tracebacks again
+                if isinstance(e, pika.exceptions.ProbableAuthenticationError):
+                    logging.error("❌ Wrong username or password.")
+                    raise ConnectionError("authentication failed")   # abort fast
                 logging.warning(f"⚠️ {host}:{port} unavailable ({e.__class__.__name__}); trying next…")
 
         raise ConnectionError(f"❌ All connection attempts failed: {last_exc!r}")
@@ -149,8 +160,8 @@ class Subscriber(threading.Thread):
         while self.running:
             try:
                 self.connection.process_data_events()
-            except pika.exceptions.AMQPConnectionError:
-                logging.warning("⚠️ Lost connection to broker—reconnecting…")
+            except Exception as e:   # ← catch everything, no traceback
+                logging.warning(f"⚠️ Lost connection ({e.__class__.__name__}) — reconnecting…")
                 try:
                     self.__connect()
                     logging.info("🔌 Reconnected to broker.")

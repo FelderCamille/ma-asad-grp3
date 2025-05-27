@@ -24,35 +24,27 @@ def main():
         if not publisher_name.strip():
             print("⚠️  Publisher name cannot be empty.")
 
-    # 2) RabbitMQ credentials (must not be empty)
-    username = ""
-    while not username.strip():
-        username = input("Enter your RabbitMQ username: ")
-        if not username.strip():
-            print("⚠️  Username cannot be empty.")
-
-    password = ""
-    while not password:
+# 2) RabbitMQ authentication – retry up to three times
+    MAX_TRIES = 3
+    for attempt in range(1, MAX_TRIES + 1):
+        username = input("Enter your RabbitMQ username: ").strip()
         password = getpass.getpass("Enter your RabbitMQ password: ")
-        if not password:
-            print("⚠️  Password cannot be empty.")
 
-    # 3) Show available news types
-    logging.info("You can create a news of the following types:")
-    for type_ in constants.NEWS_TYPES:
-        logging.info(f" - {type_}")
-
-    try:
-        # 4) Instantiate and run the editor thread
         publisher = Editor(editor_name=publisher_name,
-                           username=username,
-                           password=password)
-        publisher.name = f"Editor \"{publisher_name}\""
+                        username=username,
+                        password=password)
+        publisher.name = f'Editor "{publisher_name}"'
         publisher.start()
-        publisher.join()
-    except KeyboardInterrupt:
-        publisher.exit()
+        publisher.join()                 # thread quits fast on auth failure
 
+        if publisher.is_alive():         # connected → keep thread running
+            break
+
+        if attempt < MAX_TRIES:
+            print(f"Authentication failed ({attempt}/{MAX_TRIES}). Try again.\n")
+        else:
+            print("Too many failed attempts—good-bye.")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()

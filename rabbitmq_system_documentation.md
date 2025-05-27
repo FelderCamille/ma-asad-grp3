@@ -225,3 +225,124 @@ With minor improvements to clustering and message ordering, the system would ful
 
 ---
 
+
+
+---
+
+## 2. Architecture Overview
+
+The architecture is composed of the following core components:
+
+- **RabbitMQ Cluster**: Two-node high availability cluster with mirrored queues and TLS/SSL encryption.
+- **Publisher (Editor)**: Threaded client application allowing a user to push categorized news over secure AMQP with topic-based routing.
+- **Subscriber**: Threaded client that subscribes to specific topics and receives prioritized messages securely.
+- **Management Interface**: RabbitMQ Management UI available at port `15672` for monitoring.
+
+### Diagram
+
+```text
+[Publisher] ---> [Exchange: topic] ---> [Queue: filtered topic] ---> [Subscriber]
+                                       ^
+                             [RabbitMQ Node 1 & 2 (clustered, TLS)]
+```
+
+---
+
+## 3. Security Model
+
+### Authentication
+
+- Clients are authenticated using credentials passed securely over TLS.
+- Three-attempt retry logic implemented in both clients.
+
+### Encryption
+
+- All communication is secured with TLS using self-signed certificates (`ca_certificate.pem`).
+- The system uses AMQPS (port 5671) to enforce encrypted connections.
+
+### Authorization
+
+- Each user must provide valid credentials to access the messaging broker.
+- Failed authentications are tracked and rejected after 3 attempts.
+
+---
+
+## 4. Functionality Walkthrough
+
+### Publisher Workflow
+
+1. User provides credentials and starts the editor.
+2. Editor connects securely to RabbitMQ using AMQPS.
+3. User selects a topic and sends a message.
+4. Message is published with topic-based routing.
+
+### Subscriber Workflow
+
+1. User provides credentials and starts the subscriber.
+2. After successful authentication, selects topic(s) to subscribe to.
+3. Subscriber listens on a queue bound to the exchange with topic keys.
+4. Receives and displays messages with optional priority handling.
+
+---
+
+## 5. High Availability Setup
+
+- Docker Compose spins up two RabbitMQ nodes with identical configs.
+- `rabbitmq.conf`, `advanced.config`, and TLS certs are mounted via volume.
+- Queues are mirrored using RabbitMQ policy:
+  ```bash
+  rabbitmqctl set_policy ha-all "" '{"ha-mode":"all"}'
+  ```
+
+### Failover
+
+- If `rabbit1` fails, `rabbit2` continues operation.
+- Publisher and subscriber clients continue functioning seamlessly.
+
+---
+
+## 6. Reliability & Durability
+
+- All queues and messages are declared as `durable`.
+- Messages are `persistent`, surviving broker restarts.
+- Confirmed by testing message replay after RabbitMQ reboot.
+
+---
+
+## 7. Error Handling
+
+- Clients handle:
+  - Authentication failures (with retry logic)
+  - Connection timeouts
+  - Incorrect routing keys
+- Threads exit gracefully on unrecoverable errors.
+
+---
+
+## 8. Development & Deployment
+
+- Languages: Python 3.12, Docker, RabbitMQ
+- Key libraries: `pika`, `threading`, `ssl`, `getpass`, `logging`
+- Configuration stored in:
+  - `docker-compose-ha.yml`
+  - `rabbitmq.conf`, `advanced.config`
+  - TLS: `certs/`
+
+---
+
+## 9. Test & Validation Plan
+
+| Test                          | Status  | Description                                      |
+|-------------------------------|---------|--------------------------------------------------|
+| TLS Connection Validation     | ✔️      | Used `openssl s_client` to validate certificates |
+| Retry on Bad Login            | ✔️      | 3-strike login logic verified                    |
+| Topic Routing & Subscriptions| ✔️      | Dynamic topic binding tested                     |
+| HA Failover                   | ✔️      | Publisher/subscriber remained operational        |
+| Message Persistence           | ✔️      | Messages recovered after restart                 |
+
+---
+
+## 10. Conclusion
+
+This system demonstrates a secure, modular, and highly available pub/sub architecture suitable for production-like environments. The use of RabbitMQ with TLS and a replicated setup ensures both reliability and confidentiality. It also showcases clear separation of concerns, reusable components, and strong error handling.
+
