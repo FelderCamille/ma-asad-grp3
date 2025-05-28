@@ -19,13 +19,13 @@ services:
       - "25671:25671"   # TLS clustering (debug / demo)
 
     volumes:
-      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"
-      - "./rabbitmq-env.conf:/etc/rabbitmq/rabbitmq-env.conf:ro"        # ← NEW
-      - "./inter_node_tls.config:/etc/rabbitmq/inter_node_tls.config:ro" # ← NEW
+      - "./configs/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"
+      - "./configs/rabbitmq-env.conf:/etc/rabbitmq/rabbitmq-env.conf:ro"
+      - "./configs/inter_node_tls.config:/etc/rabbitmq/inter_node_tls.config:ro"
       - "./certs/ca_certificate.pem:/etc/rabbitmq/certs/ca_certificate.pem:ro"
       - "./certs/rabbit1_cert.pem:/etc/rabbitmq/certs/node_cert.pem:ro"
       - "./certs/rabbit1_key.pem:/etc/rabbitmq/certs/node_key.pem:ro"
-      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json:ro"
+      - "./configs/rabbitmq_setup.json:/etc/rabbitmq/definitions.json:ro"
 
     restart: unless-stopped
 
@@ -49,12 +49,12 @@ services:
       - "25673:25671"   # TLS clustering (debug / demo)
 
     volumes:
-      - "./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"
-      - "./rabbitmq-env.conf:/etc/rabbitmq/rabbitmq-env.conf:ro"        # ← NEW
-      - "./inter_node_tls.config:/etc/rabbitmq/inter_node_tls.config:ro" # ← NEW
+      - "./configs/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro"
+      - "./configs/rabbitmq-env.conf:/etc/rabbitmq/rabbitmq-env.conf:ro"
+      - "./configs/inter_node_tls.config:/etc/rabbitmq/inter_node_tls.config:ro"
       - "./certs/ca_certificate.pem:/etc/rabbitmq/certs/ca_certificate.pem:ro"
       - "./certs/rabbit2_cert.pem:/etc/rabbitmq/certs/node_cert.pem:ro"
       - "./certs/rabbit2_key.pem:/etc/rabbitmq/certs/node_key.pem:ro"
-      - "./rabbitmq_setup.json:/etc/rabbitmq/definitions.json:ro"
+      - "./configs/rabbitmq_setup.json:/etc/rabbitmq/definitions.json:ro"
 
     restart: unless-stopped
