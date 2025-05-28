@@ -8,7 +8,7 @@ import logging
 import threading
 import pika
 import ssl
-
+from collections import deque
 import constants
 
 for name in list(logging.root.manager.loggerDict):
@@ -32,6 +32,7 @@ class Editor(threading.Thread):
         self.editor_name = editor_name.replace(' ', '_') # retain the name for creating the editor-specific news
         self.username = username
         self.password = password
+        self._outbox = deque()
         
     def run(self):
         """
@@ -126,25 +127,39 @@ class Editor(threading.Thread):
             constants.EDITORS_EXCHANGE_NAME,
             f'Editor "{self.name}" is online.'
         )
-
+        # 6) If messages were queued during an outage, send them now
+        self.__flush_outbox()
 
     def __send_to_subscribers(self, exchange: str, content: str, routing: str = ""):
         """
         Send data to the subscribers
 
-        :param exchange: The name of the exchange
-        :param content: The content to send
-        :param routing: The routing key to bind. Default is empty
+        :param exchange: The exchange name
+        :param content:  Message body
+        :param routing:  Routing key (may be empty)
         """
-        # Publish on the queue
-        self.channel.basic_publish(exchange=exchange, body=content, routing_key=routing)
-        routingKeyFormatted = f" on \"{routing}\"" if routing != "" else ""
-        logging.info(f"➡️ Sent on \"{exchange}\"{routingKeyFormatted}: {content}")
+        # Buffer-then-publish with automatic retry on connection loss
+        # 1) Park the message
+        self._outbox.append((exchange, content, routing))
+        # 2) Try to flush (will pop on success)
+        try:
+            self.__flush_outbox()
+        except Exception as err:
+            # Reconnect already attempted inside __flush_outbox
+            logging.warning(f"⚠️  Publish deferred: {err!r}")
+        else:
+            routingKeyFormatted = f' on "{routing}"' if routing else ""
+            logging.info(f"➡️ Sent on \"{exchange}\"{routingKeyFormatted}: {content}")
 
     def exit(self):
         """
         Close the connection
         """
+        # Try to send any buffered news before going offline
+        if self._outbox:
+            logging.info("⏳ Flushing unsent messages before exit…")
+            self.__flush_outbox()
+
         self.running = False
         # Indicate editor's deconnection
         self.__send_to_subscribers(
@@ -153,3 +168,26 @@ class Editor(threading.Thread):
         )
         self.connection.close()
         logging.info("Editor disconnected.")
+
+    # ------------------------------------------------------------------ #
+    #  Retry buffer                                                      #
+    # ------------------------------------------------------------------ #
+    def __flush_outbox(self) -> None:
+        """
+        Try to publish everything currently queued in self._outbox.
+        Called after every reconnect and before normal publishing.
+        """
+        while self._outbox:
+            exch, body, rk = self._outbox[0]        # peek
+            try:
+                self.channel.basic_publish(
+                    exchange=exch,
+                    routing_key=rk,
+                    body=body,
+                    properties=pika.BasicProperties(delivery_mode=2)  # persistent
+                )
+                self._outbox.popleft()              # success → drop
+            except (pika.exceptions.AMQPError, OSError):
+                # Connection died again → reconnect and retry remaining msgs
+                self.__connect()
+
