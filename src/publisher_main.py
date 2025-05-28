@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import logging
 import sys
 import getpass
@@ -10,33 +11,40 @@ def main():
     """
     Main program entry point.
     """
-    # Set the logging configuration
+    # 0) Logging setup
     logging.basicConfig(stream=sys.stderr, 
-                    level=logging.INFO, 
-                    format="[%(levelname)s] %(threadName)s \t\t %(message)s")
+                        level=logging.INFO, 
+                        format="[%(levelname)s] %(threadName)s \t\t %(message)s")
     logging.getLogger("pika").setLevel(logging.WARNING)
 
-    # Get parameters from the console
-    publisher_name = input("Enter your publisher name: ")
-    username = input("Enter your RabbitMQ username: ")
-    password = getpass.getpass("Enter your RabbitMQ password: ")
-    # Inform on available news types
-    logging.info("You can create a news of the following types:")
-    for type_ in constants.NEWS_TYPES:
-        logging.info(f" - {type_}")
+    # 1) Publisher name (must not be empty)
+    publisher_name = ""
+    while not publisher_name.strip():
+        publisher_name = input("Enter your publisher name: ")
+        if not publisher_name.strip():
+            print("⚠️  Publisher name cannot be empty.")
 
-    try:
-        # Create the publisher
+# 2) RabbitMQ authentication – retry up to three times
+    MAX_TRIES = 3
+    for attempt in range(1, MAX_TRIES + 1):
+        username = input("Enter your RabbitMQ username: ").strip()
+        password = getpass.getpass("Enter your RabbitMQ password: ")
+
         publisher = Editor(editor_name=publisher_name,
-                           username=username,
-                           password=password)
-        publisher.name = f"Editor \"{publisher_name}\""
+                        username=username,
+                        password=password)
+        publisher.name = f'Editor "{publisher_name}"'
         publisher.start()
-        # Wait for the publisher to be finished
-        publisher.join()
-    except KeyboardInterrupt:
-        publisher.exit()
-        
+        publisher.join()                 # thread quits fast on auth failure
+
+        if publisher.is_alive():         # connected → keep thread running
+            break
+
+        if attempt < MAX_TRIES:
+            print(f"Authentication failed ({attempt}/{MAX_TRIES}). Try again.\n")
+        else:
+            print("Too many failed attempts—good-bye.")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()
