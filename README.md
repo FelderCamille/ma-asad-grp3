@@ -14,20 +14,21 @@ Subscribers can subscribe or unsubscribe both by **news categories** or **publis
 - **RabbitMQ (Docker)**
   - Acts as the message broker.
   - Exposed on port `5672` (AMQP protocol).
-  - Management console on port `15672`.
+  - Management console on port `15672` and `15673`
 
 - **Publisher (Editor)**
   - Code in `publisher_main.py` and `publisher.py`.
-  - Publishes to:
-    - Category-specific exchanges (e.g., `sports`, `politics`).
-    - A dedicated exchange named `editor_<publisherName>` (e.g., `editor_Alice`).
+  - Publishes to `news` exchange with routing keys:
+    - Category-specific routing key `*.<routingKey` (e.g., `*.sports.#`, `*.sports.hockey`, `*.politics.#`).
+    - Editor routing key `<publisherName>.#` (e.g., `Alice.#`).
 
 - **Subscriber**
   - Code in `subscriber_main.py` and `subscriber.py`.
   - Allows:
-    - Subscribing/unsubscribing to news categories (`sports`, `weather`, etc.).
-    - Subscribing/unsubscribing directly to publishers (`subscribeeditor Alice`).
+    - Subscribing/unsubscribing to news categories (e.g. `subscribe sports`, `subscribe sports.hockey`, `subscribe weather`, etc.).
+    - Subscribing/unsubscribing directly to publishers (e.g. `subscribeeditor Alice`).
     - Maintaining a list of publishers that are online/offline.
+    - Showing different news priorities (e.g. `showPriority low`)
 
 ---
 
@@ -40,15 +41,18 @@ Subscribers can subscribe or unsubscribe both by **news categories** or **publis
 
 ## 🐳 Start the System
 
-Open a terminal in the **root directory** (where `docker-compose.yml` resides) and run:
+Open a terminal in the **root directory** (where `README.md` resides) and run:
 
 ```bash
-sudo ./certs/generate-certs.sh
-docker compose up -d
+./start_ha.sh
 ```
 
-Visit [http://localhost:15672](http://localhost:15672) for the RabbitMQ Management UI.  
+Note: at the first pull, you might need to run `chmod +x start_ha.sh` before the command above. 
+
+Visit [http://localhost:15672](http://localhost:15672) for the RabbitMQ Management UI.
 - Default credentials: `admin` / `supersecureadmin`.
+
+You'll see two "Nodes" into the "Overview" tab.
 
 ---
 
@@ -63,13 +67,16 @@ Open a terminal and execute:
 ```bash
 cd src
 pip install -r requirements.txt
-python3 publisher_main.py
+cd ..
+python3 src/publisher_main.py
 ```
 
-When prompted, enter the publisher name:
+When prompted, enter the publisher name, username and password:
 
 ```yaml
 Enter your publisher name: Alice
+Enter your RabbitMQ username: editor1
+Enter your RabbitMQ password: 
 ```
 
 The publisher announces `"Editor "Alice" is online."`.
@@ -90,13 +97,16 @@ Open another terminal and execute:
 ```bash
 cd src
 pip install -r requirements.txt
+cd ..
 python3 subscriber_main.py
 ```
 
-When prompted, enter subscriber name:
+When prompted, enter subscriber name, username and password:
 
 ```yaml
 Enter your name: Bob
+Enter your RabbitMQ username: subscriber1
+Enter your RabbitMQ password: 
 ```
 
 You will now see an interactive prompt (`>>`).
@@ -109,15 +119,15 @@ subscribe sports
 
 Bob subscribes immediately to these news type.
 
-
 ### ⚡ Interactive Subscriber Commands
 
 From the subscriber prompt (`>>`), use:
 
-- `subscribe <news_type>` (e.g., `unsubscribe sports`)
-- `unsubscribe <news_type>` (e.g., `unsubscribe sports`)
-- `subscribeeditor <publisher_name>` (e.g., `subscribeeditor Alice`)
+- `subscribe <topic> [<low/medium/high>]` (e.g., `subscribe sports medium`)
+- `unsubscribe <topic>` (e.g., `unsubscribe sports`)
+- `subscribeeditor <publisher_name> [<low/medium/high>]` (e.g., `subscribeeditor Alice`)
 - `unsubscribeeditor <publisher_name>` (e.g., `unsubscribeeditor Alice`)
+- `showPriority <low/medium/high>` (e.g. `showPriority low`)
 - `exit` (to stop subscriber)
 
 ### 🚩 Example Command Workflow
@@ -148,6 +158,28 @@ Bob unsubscribes from a news category:
 >> unsubscribe sports
 ```
 
+Bob subscribe to a news category with a low priority:
+
+```bash
+>> subscribe sports.baseball low
+```
+
+When Alice publishes a news on `sports`, Bob do not receives it. When Alice publishes on `sports.baseball`, Bob do not see the news.
+
+Bob displays the news with low priority:
+
+```bash
+>> showPriority low
+```
+
+Bob sees the news sent before.
+
+Bob displays the news with high priority:
+
+```bash
+>> showPriority high
+```
+
 When Alice stops (`Ctrl + C`), Bob sees `"Editor "Alice" is offline."`
 
 Bob exits:
@@ -163,10 +195,12 @@ Bob exits:
 To stop the system, run:
 
 ```bash
-docker compose down -v
+./stop_ha.sh
 ```
 
-This stops RabbitMQ and removes all containers, networks, and volumes.
+Note: at the first pull, you might need to run `chmod +x stop_ha.sh` before the command above. 
+
+This stops RabbitMQ and removes all containers, networks, and volumes and certificates.
 
 ---
 
