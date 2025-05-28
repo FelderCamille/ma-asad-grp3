@@ -31,13 +31,13 @@ Start a replicated RabbitMQ system with:
 
 1. **Start the system**:
    ```bash
-   docker compose -f docker-compose-ha.yml up --build
+   ./start_ha.sh
    ```
 
 2. **Confirm both nodes are healthy**:
    - Visit [`http://localhost:15672`](http://localhost:15672)
    - Login as `admin / supersecureadmin`
-   - Verify 2 nodes are present under *"Nodes"* tab
+   - Verify 2 nodes are present under "Overview" tab and "Nodes" section.
 
 3. **Verify TLS is enabled**:
    ```bash
@@ -63,7 +63,7 @@ Demonstrate both failure and success cases of login flow.
 #### A. ❌ Wrong credentials
 1. Launch:
    ```bash
-   python subscriber_main.py
+   python src/subscriber_main.py
    ```
 2. Enter wrong credentials:
    ```
@@ -83,12 +83,12 @@ Demonstrate both failure and success cases of login flow.
 #### B. ✅ Correct credentials
 1. Run again:
    ```bash
-   python subscriber_main.py
+   python src/subscriber_main.py
    ```
 2. Enter correct credentials:
    ```
-   Enter your RabbitMQ username: admin
-   Enter your RabbitMQ password: supersecureadmin
+   Enter your RabbitMQ username: subscriber1
+   Enter your RabbitMQ password: subpass
    ```
 3. You’ll now see:
    ```
@@ -109,14 +109,18 @@ Publish secure, topic-routed messages.
 
 1. Launch publisher:
    ```bash
-   python publisher_main.py
+   python src/publisher_main.py
    ```
-2. Provide credentials:
-   - `admin / supersecureadmin`
+
+2. Provide editor name and credentials:
+   ```bash
+   Enter your editor name: Reuters
+   Enter your RabbitMQ username: subscriber1
+   Enter your RabbitMQ password: 
+   ```
 
 3. Follow the prompts:
    ```
-   Enter your editor name: Reuters
    Enter news category: economy
    Enter message: Market up 2.5% today
    ```
@@ -135,32 +139,32 @@ Subscribe to news categories and receive routed news.
 1. Start a new terminal
 2. Launch subscriber:
    ```bash
-   python subscriber_main.py
+   python src/subscriber_main.py
    ```
-3. After login, choose categories (e.g., `economy`, `sports`)
+3. After login, choose categories (e.g., `economy`, `sports.socker`)
 4. Wait for editor messages to arrive
 5. Observe sorted output based on priority (if implemented)
 
 ---
 
-## 5. 💾 Message Persistence (M2)
+## 5. 💾 Message priority (M2)
 
 ### ✅ Goal
-Ensure messages are durable and survive RabbitMQ restarts.
+
+Ensure messages are displayed only when the priority is the correct one.
 
 ### 🔁 Steps
 
 1. Run publisher and subscriber normally
-2. Publish a few messages
-3. Stop RabbitMQ:
+2. From the subscriber, run:
    ```bash
-   docker compose down
+   subscribe sports low
    ```
-4. Restart RabbitMQ:
+3. Publish a few messages on `sports`
+4. On the subscriber, nothing is shown until:
    ```bash
-   docker compose -f docker-compose-ha.yml up
+   showPriority low
    ```
-5. Start subscriber again — older messages should be received.
 
 ---
 
@@ -189,8 +193,7 @@ Ensure that queues are **mirrored and resilient** across RabbitMQ nodes.
 | ✅ Topic-based Routing | ✔️  |
 | ✅ Prioritized Display (S2) | ✔️  |
 | ✅ Publisher & Subscriber Threads | ✔️  |
-| ✅ Durable Queues | ✔️  |
-| ✅ Message Persistence (M2) | ✔️  |
+| ✅ Message priorities (M2) | ✔️  |
 | ✅ Secure Login with Retry | ✔️  |
 | ✅ HA Failover / Replication Bonus | ✔️  |
 
@@ -206,7 +209,7 @@ docker logs -f rabbit1
 curl -u admin:supersecureadmin http://localhost:15672/api/queues | jq
 
 # Clean system
-docker compose -f docker-compose-ha.yml down -v
+./stop_ha.sh
 ```
 
 ---

@@ -79,9 +79,6 @@ Use the file `docker-compose-ha.yml` to launch two RabbitMQ nodes. Each exposes 
 Using `rabbitmq_setup.json`, the system creates:
 - A virtual host: `news`
 - Users: `editor1`, `editor2`, `sub1`, `sub2`
-- Permissions:
-  - Publishers: write-only access to `news`
-  - Subscribers: read-only access
 
 ### 3.3 Secure Transport with TLS (S2)
 
@@ -114,8 +111,6 @@ Users subscribe with commands like:
 - `subscribeEditor LeTemps` → `LeTemps.#`
 
 Each subscriber has one exclusive queue with dynamic topic bindings.
-
-Bug to fix: `__format_routing_key()` is missing `self`.
 
 ### 5.2 Message Reception and Priority Filtering (M2)
 
@@ -177,7 +172,7 @@ Filtering is implemented, but not sorting.
 ### 9.1 Setup
 
 ```bash
-docker compose -f docker-compose-ha.yml up
+./start_ha.sh
 ```
 
 ### 9.2 Publisher
@@ -201,7 +196,7 @@ python subscriber_main.py
 
 Example:
 ```
-Username: sub1
+Username: subscriber1
 > subscribe sports.hockey high
 > showPriority high
 ```
@@ -288,7 +283,7 @@ The architecture is composed of the following core components:
 ## 5. High Availability Setup
 
 - Docker Compose spins up two RabbitMQ nodes with identical configs.
-- `rabbitmq.conf`, `advanced.config`, and TLS certs are mounted via volume.
+- `rabbitmq.conf`, `inter_node_tls.config`, and TLS certs are mounted via volume.
 - Queues are mirrored using RabbitMQ policy:
   ```bash
   rabbitmqctl set_policy ha-all "" '{"ha-mode":"all"}'
@@ -325,7 +320,7 @@ The architecture is composed of the following core components:
 - Key libraries: `pika`, `threading`, `ssl`, `getpass`, `logging`
 - Configuration stored in:
   - `docker-compose-ha.yml`
-  - `rabbitmq.conf`, `advanced.config`
+  - RabbitMQ configs: `configs/`
   - TLS: `certs/`
 
 ---
@@ -336,7 +331,7 @@ The architecture is composed of the following core components:
 |-------------------------------|---------|--------------------------------------------------|
 | TLS Connection Validation     | ✔️      | Used `openssl s_client` to validate certificates |
 | Retry on Bad Login            | ✔️      | 3-strike login logic verified                    |
-| Topic Routing & Subscriptions| ✔️      | Dynamic topic binding tested                     |
+| Topic Routing & Subscriptions | ✔️      | Dynamic topic binding tested                     |
 | HA Failover                   | ✔️      | Publisher/subscriber remained operational        |
 | Message Persistence           | ✔️      | Messages recovered after restart                 |
 
